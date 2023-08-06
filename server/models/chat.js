@@ -9,7 +9,9 @@ const messageSchema = new mongoose.Schema(
     readBy: [{ type: ObjectId, ref: 'User' }],
     date: { type: Date, default: Date.now },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 const chatSchema = new mongoose.Schema(
@@ -36,5 +38,16 @@ const chatSchema = new mongoose.Schema(
 
 // Indexes
 chatSchema.index({ name: 1 });
+
+// Add a virtual property to get paginated messages
+chatSchema.virtual('paginatedMessages').get(function () {
+  const pageSize = this.pageSize || 20; // Number of messages per page
+  const currentPage = this.currentPage || 1;
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+
+  return this.messages.slice(startIndex, endIndex);
+});
 
 export default mongoose.model('Chat', chatSchema);

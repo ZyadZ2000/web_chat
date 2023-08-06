@@ -89,7 +89,4 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
-userSchema.index({ email: 1 }); // Index for efficient email lookups
-
 export default mongoose.model('User', userSchema);
