@@ -16,7 +16,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      lowercase: true,
       trim: true,
       match: /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/,
     },
@@ -40,7 +39,7 @@ const userSchema = new mongoose.Schema(
       },
       photoToNonFriends: {
         type: Boolean,
-        default: false,
+        default: true,
       },
     },
     groupInvites: [
@@ -89,4 +88,84 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+/*
+Group Invites
+Chats
+Starred Messages
+Friends
+
+I won't get them unless with their populated data, I wouldn't care for anything else
+
+However, for performance, I would also need to fetch them in pages.
+
+the options are:
+virtual getters (no parameters unless on the document)
+static methods
+query extensions
+methods on instances
+explicit populate
+
+userSchema.virtual('populatedStarredMessages').get(async function () {
+  const messages = await mongoose
+    .model('Chat')
+    .aggregate([
+      {
+        $match: {
+          'messages._id': {
+            $in: this.starredMessages,
+          },
+        },
+      },
+      { $unwind: '$messages' }, // Unwind the messages array
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'messages.userId',
+          foreignField: '_id',
+          as: 'senderInfo',
+        },
+      },
+      {
+        $project: {
+          messageId: '$messages._id',
+          content: '$messages.content',
+          chatId: '$_id',
+          sender: {
+            _id: { $arrayElemAt: ['$senderInfo._id', 0] },
+            username: { $arrayElemAt: ['$senderInfo.username', 0] },
+            profilePhoto: { $arrayElemAt: ['$senderInfo.profilePhoto', 0] },
+          },
+        },
+      },
+    ])
+    .exec();
+
+  return messages;
+});
+
+userSchema.virtual('populatedChats').get(async function () {
+  const chats = await mongoose
+    .model('Chat')
+    .find({ _id: { $in: this.chats } })
+    .select('name photo')
+    .populate({
+      path: 'messages',
+      options: { sort: { date: -1 }, limit: 1 },
+      select: 'content',
+    })
+    .exec();
+
+  return chats;
+});
+
+userSchema.virtual('populatedFriends').get(async function () {
+  const friends = await mongoose
+    .model('User')
+    .find({ _id: { $in: this.friends } })
+    .select('username bio profilePhoto onlineStatus')
+    .exec();
+
+  return friends;
+});
+*/
 export default mongoose.model('User', userSchema);
