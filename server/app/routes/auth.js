@@ -3,37 +3,16 @@ import express from 'express';
 
 // Custom modules
 import * as authController from '../controllers/auth';
+import validate_data from '../middleware/validation';
 
 const router = express.Router();
 
-/*
-Data provided:
-    email
-    password
-    password_confirm
-    username
+router.post('/signup', validate_data, authController.signup);
 
-Additional constraints:
-no two users with the same email, or username
-*/
-router.post('/signup', authController.signup);
-
-/*
-email
-password
-*/
 router.post('/login', authController.login);
 
-/*
-No data needed
-*/
 router.post('/reset/password', authController.reset_password);
 
-/*
-email
-new_password
-confirm_password
-*/
 router.post('/reset/confirm', authController.reset_confirm);
 
 export default router;

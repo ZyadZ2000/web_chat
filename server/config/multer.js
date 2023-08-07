@@ -1,3 +1,7 @@
+// Third Party
+import { v4 as uuidv4 } from 'uuid';
+
+// Node modules
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -10,7 +14,7 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, '..', 'public/assets'));
   },
   filename: function (req, file, cb) {
-    cb(null, file.originalname);
+    cb(null, uuidv4());
   },
 });
 
