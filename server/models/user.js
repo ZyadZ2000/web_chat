@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: 'default_profile.png',
     },
-    bio: String,
+    bio: { type: String, default: '' },
     onlineStatus: {
       type: Boolean,
       default: false,
@@ -82,6 +82,14 @@ const userSchema = new mongoose.Schema(
         },
       },
     ],
+    token: {
+      type: String,
+      default: null,
+    },
+    tokenExpiration: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
