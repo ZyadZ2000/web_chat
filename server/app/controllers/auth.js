@@ -1,10 +1,22 @@
 // Third Party
 import bcrypt from 'bcrypt';
+import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
+import sgMail from '@sendgrid/mail';
+
+// Node Modules
+import crypto from 'crypto';
+import util from 'util';
 
 // Custom modules
-import User from '../../models/user';
+import User from '../../models/user.js';
+import { tokenSchema } from '../../config/joi.js';
 
-async function signup(req, res, next) {
+dotenv.config({ path: '../.env' });
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+export async function signup(req, res, next) {
   try {
     const { email, password, username } = req.body;
 
@@ -34,14 +46,71 @@ async function signup(req, res, next) {
   }
 }
 
-function login(req, res, next) {
-  console.log('login');
+export function login(req, res, next) {
+  const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, {
+    expiresIn: '1h',
+  });
+
+  if (!token) return next(new Error('Could not sign token'));
+
+  return res.status(200).send({ token });
 }
 
-function reset_password(req, res, next) {
-  console.log('reset_password');
+export async function reset_password(req, res, next) {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email: email });
+    if (!user) return res.status(404).json({ message: 'user not found' });
+
+    const randomBytesAsync = util.promisify(crypto.randomBytes);
+    const buffer = await randomBytesAsync(32);
+    const token = buffer.toString('hex');
+
+    user.token = token;
+    user.tokenExpiration = Date.now() + 3600000;
+    await user.save();
+
+    await sgMail.send({
+      to: email,
+      from: 'chat.app.node.2023@gmail.com',
+      subject: 'Password Reset Request',
+      html: `<p>You requested a password reset</p>
+        <p>Click this <a href="http://localhost:3000/auth/reset/${token}">link</a> to set a new password.</p>`,
+    });
+
+    return res.status(200).json({ message: 'Email sent.' });
+  } catch (error) {
+    next(error);
+  }
 }
 
-function reset_confirm(req, res, next) {
-  console.log('confirm_password');
+export function get_reset(req, res, next) {
+  const token = req.params.token;
+  const { error } = joiSchemas.tokenSchema.validate(token);
+  if (error) {
+    return res.status(400).send('Invalid token');
+  }
+  return res.render('resetPass', {
+    token: token,
+  });
+}
+
+export async function reset_confirm(req, res, next) {
+  try {
+    const { email, password, token } = req.body;
+    const foundUser = await User.findOne({
+      email: email,
+      token: token,
+      tokenExpiration: { $gt: Date.now() },
+    });
+
+    const hashedPassword = bcrypt.hash(password, 10);
+    foundUser.password = hashedPassword;
+    foundUser.token = undefined;
+    foundUser.tokenExpiration = undefined;
+    await foundUser.save();
+    return res.status(201).send('Password reset successfully! Go to login');
+  } catch (error) {
+    return res.status(500).send("Server error! Can't reset password");
+  }
 }

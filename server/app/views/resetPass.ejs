@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Password Reset</title>
+  </head>
+  <body>
+    <h1>Password Reset</h1>
+    <form action="/auth/reset/confirm" method="post">
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="email" required /><br /><br />
+
+      <label for="password">New Password:</label>
+      <input
+        type="password"
+        id="password"
+        name="password"
+        required
+      /><br /><br />
+
+      <label for="passwordConfirm">Confirm Password:</label>
+      <input
+        type="password"
+        id="passwordConfirm"
+        name="passwordConfirm"
+        required
+      /><br /><br />
+      <input type="hidden" id="token" name="token" value="<%= token %>">
+      <input type="submit" value="Reset Password" />
+    </form>
+  </body>
+</html>
