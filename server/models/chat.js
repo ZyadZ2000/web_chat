@@ -37,6 +37,7 @@ const groupChatSchema = new mongoose.Schema(
   {
     creatorId: { type: ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
+    description: { type: String, default: '' },
     photo: { type: String, default: 'default_profile.png' },
     members: [{ type: ObjectId, ref: 'User' }],
     admins: [{ type: ObjectId, ref: 'User' }],

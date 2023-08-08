@@ -58,7 +58,7 @@ export function login(req, res, next) {
 
   if (!token) return next(new Error('Could not sign token'));
 
-  return res.status(200).send({ token });
+  return res.status(200).send({ token, user: req.user });
 }
 
 export async function reset_password(req, res, next) {
