@@ -42,19 +42,6 @@ const userSchema = new mongoose.Schema(
         default: true,
       },
     },
-    groupInvites: [
-      {
-        chatId: {
-          type: ObjectId,
-          required: true,
-          ref: 'Chat',
-        },
-        date: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
     chats: [
       {
         chatId: {
