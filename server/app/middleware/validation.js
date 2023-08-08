@@ -21,14 +21,15 @@ export default function validate_data(fields) {
         token: joiSchema.tokenSchema,
       }
     );
-    if (errors) {
+    if (Object.keys(errors).length !== 0) {
       return res.status(400).json({ errors: errors });
     }
     if (passwordConfirm && password !== passwordConfirm) {
-      return res
-        .status(400)
-        .json({ errors: { passwordConfirm: 'Passwords do not match' } });
+      console.log('passwords do not match');
+      return res.status(400).json({
+        errors: { passwordConfirm: 'Passwords do not match' },
+      });
     }
-    next();
+    return next();
   };
 }

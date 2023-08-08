@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3000;
 
 mongoose
   .connect(process.env.MONGO_URI, {
-    dbName: process.env.DATABASE_NAME,
+    dbName: process.env.DB_NAME,
   })
   .then(() => {
     server.listen(PORT, () => {

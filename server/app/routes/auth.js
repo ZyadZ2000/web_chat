@@ -11,7 +11,7 @@ const router = express.Router();
 
 router.post(
   '/signup',
-  validate_data(['email', 'password', 'passwordConfirm']),
+  validate_data(['email', 'username', 'password', 'passwordConfirm']),
   upload.single('profilePicture'),
   authController.signup
 );
@@ -23,7 +23,11 @@ router.post(
   authController.login
 );
 
-router.post('/reset/password', authController.reset_password);
+router.post(
+  '/reset/password',
+  validate_data(['email']),
+  authController.reset_password
+);
 
 router.get('/reset/:token', authController.get_reset);
 

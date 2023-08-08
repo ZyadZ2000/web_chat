@@ -1,5 +1,6 @@
 // Third Party
 import { v4 as uuidv4 } from 'uuid';
+import multer from 'multer';
 
 // Node modules
 import { fileURLToPath } from 'url';

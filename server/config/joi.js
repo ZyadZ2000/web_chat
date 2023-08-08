@@ -14,4 +14,4 @@ export const objectIdSchema = Joi.string()
   .pattern(/^[0-9a-fA-F]{24}$/)
   .required();
 
-export const tokenSchema = Joi.string().length(64).hex();
+export const tokenSchema = Joi.string().length(64).hex().required();

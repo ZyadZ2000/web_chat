@@ -7,12 +7,17 @@ import sgMail from '@sendgrid/mail';
 // Node Modules
 import crypto from 'crypto';
 import util from 'util';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 // Custom modules
 import User from '../../models/user.js';
 import { tokenSchema } from '../../config/joi.js';
 
-dotenv.config({ path: '../.env' });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -21,7 +26,7 @@ export async function signup(req, res, next) {
     const { email, password, username } = req.body;
 
     const oldUser = await User.findOne({
-      $or: { email: email, username: username },
+      $or: [{ email: email }, { username: username }],
     });
 
     if (oldUser)
@@ -86,7 +91,7 @@ export async function reset_password(req, res, next) {
 
 export function get_reset(req, res, next) {
   const token = req.params.token;
-  const { error } = joiSchemas.tokenSchema.validate(token);
+  const { error } = tokenSchema.validate(token);
   if (error) {
     return res.status(400).send('Invalid token');
   }
@@ -104,7 +109,7 @@ export async function reset_confirm(req, res, next) {
       tokenExpiration: { $gt: Date.now() },
     });
 
-    const hashedPassword = bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     foundUser.password = hashedPassword;
     foundUser.token = undefined;
     foundUser.tokenExpiration = undefined;
