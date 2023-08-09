@@ -32,16 +32,6 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    settings: {
-      showOnline: {
-        type: Boolean,
-        default: true,
-      },
-      photoToNonFriends: {
-        type: Boolean,
-        default: true,
-      },
-    },
     chats: [
       {
         chatId: {

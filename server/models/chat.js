@@ -20,17 +20,10 @@ const chatSchema = new mongoose.Schema(
       enum: ['private', 'group'],
       required: true,
     },
+    members: [{ type: ObjectId, ref: 'User' }],
     messages: [messageSchema],
   },
   { timestamps: true }
-);
-
-const privateChatSchema = new mongoose.Schema(
-  {
-    user1Id: { type: ObjectId, required: true, ref: 'User' },
-    user2Id: { type: ObjectId, required: true, ref: 'User' },
-  },
-  { discriminatorKey: 'type', _id: false }
 );
 
 const groupChatSchema = new mongoose.Schema(
@@ -39,11 +32,10 @@ const groupChatSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: { type: String, default: '' },
     photo: { type: String, default: 'default_profile.png' },
-    members: [{ type: ObjectId, ref: 'User' }],
+
     admins: [{ type: ObjectId, ref: 'User' }],
     settings: {
       onlyAdmins: { type: Boolean, default: false },
-      discoverable: { type: Boolean, default: true },
     },
   },
   { discriminatorKey: 'type', _id: false }
@@ -54,7 +46,5 @@ groupChatSchema.index({ name: 1 });
 const Chat = mongoose.model('Chat', chatSchema);
 
 export const GroupChat = Chat.discriminator('group', groupChatSchema);
-
-export const PrivateChat = Chat.discriminator('private', privateChatSchema);
 
 export default Chat;

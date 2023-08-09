@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 
 // Custom modules
 import User from '../../models/user.js';
+import { get_jwt } from '../helpers/auth.js';
 
 export const auth_local = async (req, res, next) => {
   try {
@@ -25,22 +26,13 @@ export const auth_local = async (req, res, next) => {
   }
 };
 
-export const auth_jwt = async (req, res, next) => {
-  let decodedToken;
-  const authHeader = req.get('Authorization');
-  if (!authHeader) {
-    return res.status(401).json({ message: 'Not authenticated' });
-  }
-  const token = authHeader.split(' ')[1];
+export const auth_jwt = (req, res, next) => {
   try {
-    decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    const token = get_jwt(req);
+    if (!token) return res.status(401).json({ message: 'Not authenticated' });
+    req.userId = token.userId;
+    next();
   } catch (error) {
     return next(error);
   }
-  if (!decodedToken) {
-    return res.status(401).json({ message: 'Not authenticated' });
-  }
-
-  req.userId = decodedToken.userId;
-  next();
 };

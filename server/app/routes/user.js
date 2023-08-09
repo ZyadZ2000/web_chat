@@ -13,11 +13,11 @@ const router = express.Router();
 router.get('/profile', auth_jwt, userController.get_profile);
 
 // Getting the info of another user
-router.get('/profile/:userId', userController.get_user_info);
+router.get('/profile/:username', userController.get_user);
 
-router.get('/profile/friends', userController.get_friends);
+router.get('/profile/friends', auth_jwt, userController.get_friends);
 
-router.get('/profile/chats', userController.get_chats);
+router.get('/profile/chats', auth_jwt, userController.get_chats);
 
 router.get('/profile/requests/received', userController.get_received_requests);
 
