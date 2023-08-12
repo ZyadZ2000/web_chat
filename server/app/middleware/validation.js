@@ -14,6 +14,12 @@ export default function validate_data(fields, validationSchemas, dataSource) {
     if (Object.keys(errors).length !== 0) {
       return res.status(400).json({ errors: errors });
     }
+    if (req.body.newPass && req.body.newPass !== req.body.newPassConfirm) {
+      return res.status(400).json({
+        errors: { passwordConfirm: 'Passwords do not match' },
+      });
+    }
+
     if (
       req.body.passwordConfirm &&
       req.body.password !== req.body.passwordConfirm

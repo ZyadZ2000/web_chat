@@ -25,15 +25,6 @@ export const auth_local = (fetchData) => {
     try {
       const { email, password } = req.body;
 
-      const errors = validate_fields(['email', 'password'], req.body, {
-        email: validationSchemas.emailSchema,
-        password: validationSchemas.passwordSchema,
-      });
-
-      if (Object.keys(errors).length !== 0) {
-        return res.status(400).json({ errors: errors });
-      }
-
       const user = fetchData
         ? await User.findOne({ email: email }).select(
             '_id email username profilePhoto bio settings chats starredMessages friends'

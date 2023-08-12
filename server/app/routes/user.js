@@ -5,6 +5,7 @@ import * as userController from '../controllers/user.js';
 import { auth_jwt, auth_local } from '../middleware/auth.js';
 import upload from '../../config/multer.js';
 import validate_data from '../middleware/validation.js';
+import * as validationSchemas from '../../config/joi.js';
 
 const router = express.Router();
 
@@ -12,22 +13,40 @@ router.get('/profile', auth_jwt, userController.get_profile);
 
 router.get(
   '/profile/:username',
-  validate_data(['username']),
+  validate_data(
+    ['username'],
+    {
+      username: validationSchemas.usernameSchema,
+    },
+    'params'
+  ),
   userController.get_user
 );
 
 // This should get the array of requested friends from the user.
 router.get(
   '/profile/friends',
-  validate_data(['arrayObjectIds']),
+  validate_data(
+    ['friendIds'],
+    {
+      friendIds: validationSchemas.arrayObjectIdSchema,
+    },
+    'body'
+  ),
   auth_jwt,
   userController.get_friends
 );
 
 router.get(
   '/profile/chats',
+  validate_data(
+    ['chatIds'],
+    {
+      chatIds: validationSchemas.arrayObjectIdSchema,
+    },
+    'body'
+  ),
   auth_jwt,
-  validate_data(['arrayObjectIds']),
   userController.get_chats
 );
 
@@ -44,34 +63,88 @@ router.get(
 );
 
 router.get(
-  '/profile/starred',
-  validate_data(['arrayObjectIds']),
+  '/profile/starred/messages',
+  validate_data(
+    ['messageIds'],
+    {
+      messageIds: validationSchemas.arrayObjectIdSchema,
+    },
+    'body'
+  ),
   auth_jwt,
   userController.get_starred_messages
 );
 
 router.get(
   '/search/:username',
-  validate_data(['username']),
+  validate_data(
+    ['username'],
+    {
+      username: validationSchemas.usernameSchema,
+    },
+    'params'
+  ),
   userController.search_users
 );
 
-// Each of the next routes will need to get some data.
-router.put('/profile/email', auth_local(false), userController.update_email);
+router.put(
+  '/profile/email',
+  validate_data(
+    ['email', 'password', 'newEmail'],
+    {
+      email: validationSchemas.emailSchema,
+      password: validationSchemas.passwordSchema,
+      newEmail: validationSchemas.emailSchema,
+    },
+    'body'
+  ),
+  auth_local(false),
+  userController.update_email
+);
 
 router.put(
   '/profile/username',
+  validate_data(
+    ['email', 'password', 'newUsername'],
+    {
+      email: validationSchemas.emailSchema,
+      password: validationSchemas.passwordSchema,
+      newUsername: validationSchemas.usernameSchema,
+    },
+    'body'
+  ),
   auth_local(false),
   userController.update_username
 );
 
 router.put(
   '/profile/password',
+  validate_data(
+    ['email', 'password', 'newPass', 'newPassConfirm'],
+    {
+      email: validationSchemas.emailSchema,
+      password: validationSchemas.passwordSchema,
+      newPass: validationSchemas.passwordSchema,
+      newPassConfirm: validationSchemas.passwordSchema,
+    },
+    'body'
+  ),
   auth_local(false),
   userController.update_password
 );
 
-router.put('/profile/bio', auth_jwt, userController.update_bio);
+router.put(
+  '/profile/bio',
+  validate_data([
+    'bio',
+    {
+      bio: validationSchemas.bioSchema,
+    },
+    'body',
+  ]),
+  auth_jwt,
+  userController.update_bio
+);
 
 router.put(
   '/profile/picture',
@@ -80,6 +153,18 @@ router.put(
   userController.update_picture
 );
 
-router.delete('/', auth_local, userController.delete_user);
+router.delete(
+  '/',
+  validate_data(
+    ['email', 'password'],
+    {
+      email: validationSchemas.emailSchema,
+      password: validationSchemas.passwordSchema,
+    },
+    'body'
+  ),
+  auth_local(false),
+  userController.delete_user
+);
 
 export default router;

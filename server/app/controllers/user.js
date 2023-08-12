@@ -1,6 +1,7 @@
 // Custom Modules
 import User from '../../models/user.js';
 import Chat from '../../models/chat.js';
+import Request from '../../models/request.js';
 
 export async function get_profile(req, res) {
   try {
@@ -34,7 +35,7 @@ export async function get_user(req, res) {
 
 export async function get_friends(req, res) {
   try {
-    const friendIds = req.body.friendIds; // This one should be validated
+    const friendIds = req.body.friendIds;
     const friends = await User.find({ _id: { $in: friendIds } }).select(
       'username profilePhoto bio onlineStatus'
     );
@@ -43,54 +44,75 @@ export async function get_friends(req, res) {
 
     return res.status(200).json({ friends: friends });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
 export async function get_chats(req, res, next) {
   try {
-    const chatIds = req.body.chatIds; // This one should be validated
-
-    const user = await User.findById(req.userId).select('chats');
+    const chatIds = req.body.chatIds;
 
     const chats = await Chat.aggregate([
-      { $match: { _id: { $in: user.chats } } },
+      { $match: { _id: { $in: chatIds } } },
       {
-        $unwind: '$messages',
-      },
-      {
-        $sort: { 'messages.createdAt': -1 },
-      },
-      {
-        $group: { _id: '$_id', latestMessage: { $first: '$messages' } },
+        $lookup: {
+          from: 'users',
+          localField: 'users',
+          foreignField: '_id',
+          as: 'users',
+        },
       },
       {
         $project: {
           _id: 1,
-          latestMessage: 1,
           name: 1,
-          type: 1,
           photo: 1,
-          users: 1,
+          type: 1,
+          'users._id': 1,
+          'users.username': 1,
+          'users.profilePhoto': 1,
+          'chat.messages': { $slice: ['$chat.messages', -1] },
         },
       },
     ]);
 
-    /*
-    Two types of chats, private and group chats.
-    for private chats I'd need to get the other user and fetch his profile photo and username
-    for group chats I'd need to get the group chat name and photo
+    if (!chats) return res.status(404).json({ message: 'Chats not found' });
 
-    for both chats I'd need to fetch the last message and the time it was sent
-    */
+    return res.status(200).json({ chats: chats });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
-export async function get_received_requests(req, res, next) {}
+export async function get_received_requests(req, res, next) {
+  try {
+    const receivedReqs = await Request.find({ receiverId: req.userId })
+      .populate('senderId', '_id username profilePhoto onlineStatus bio')
+      .populate('chatId', '_id name photo description');
 
-export async function get_sent_requests(req, res, next) {}
+    if (!receivedReqs)
+      return res.status(404).json({ message: 'No received requests' });
+
+    return res.status(200).json({ receivedReqs });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function get_sent_requests(req, res, next) {
+  try {
+    const sentReqs = await Request.find({ senderId: req.userId })
+      .populate('receiverId', '_id username profilePhoto onlineStatus bio')
+      .populate('chatId', '_id name photo description');
+
+    if (!receivedReqs)
+      return res.status(404).json({ message: 'No received requests' });
+
+    return res.status(200).json({ receivedReqs });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 export async function get_starred_messages(req, res, next) {}
 
