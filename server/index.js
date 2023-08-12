@@ -7,7 +7,7 @@ import http from 'http';
 
 // Custom Modules
 import app from './app/index.js';
-import io_init from './sockets/index.js';
+import io_init from './websockets/index.js';
 
 const server = http.createServer(app);
 io_init(server);

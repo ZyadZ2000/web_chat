@@ -12,7 +12,9 @@ import path from 'path';
 
 // Custom modules
 import User from '../../models/user.js';
-import { tokenSchema } from '../../config/joi.js';
+import validate_fields from '../../utils/validation.js';
+import * as validationSchemas from '../../config/joi.js';
+import { valid } from 'joi';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,6 +66,7 @@ export function login(req, res, next) {
 export async function reset_password(req, res, next) {
   try {
     const { email } = req.body;
+
     const user = await User.findOne({ email: email });
     if (!user) return res.status(404).json({ message: 'user not found' });
 
@@ -90,22 +93,19 @@ export async function reset_password(req, res, next) {
 }
 
 export function get_reset(req, res, next) {
-  const token = req.params.token;
-  const { error } = tokenSchema.validate(token);
-  if (error) {
-    return res.status(400).send('Invalid token');
-  }
+  const resetToken = req.params.resetToken;
   return res.render('resetPass', {
-    token: token,
+    resetToken: resetToken,
   });
 }
 
 export async function reset_confirm(req, res, next) {
   try {
-    const { email, password, token } = req.body;
+    const { email, password, resetToken } = req.body;
+
     const foundUser = await User.findOne({
       email: email,
-      token: token,
+      token: resetToken,
       tokenExpiration: { $gt: Date.now() },
     });
 

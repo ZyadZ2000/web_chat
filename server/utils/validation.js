@@ -1,4 +1,4 @@
-export default function validate_fields(data, fieldOrder, validationSchemas) {
+export default function validate_fields(fieldOrder, data, validationSchemas) {
   const errors = {};
 
   for (const field of fieldOrder) {

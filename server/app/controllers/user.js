@@ -1,12 +1,11 @@
 // Custom Modules
 import User from '../../models/user.js';
-import { usernameSchema } from '../../config/joi.js';
-import { get_jwt } from '../helpers/auth.js';
+import Chat from '../../models/chat.js';
 
 export async function get_profile(req, res) {
   try {
     const user = await User.findById(req.userId).select(
-      'email username profilePhoto bio'
+      '_id email username profilePhoto bio chats friends'
     );
 
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -20,9 +19,6 @@ export async function get_profile(req, res) {
 export async function get_user(req, res) {
   try {
     const { username } = req.params;
-    const { error } = usernameSchema.validate(username);
-    if (error)
-      return res.status(400).json({ errors: { username: 'Invalid username' } });
 
     const user = await User.findOne({ username: username }).select(
       'username bio profilePhoto onlineStatus'
@@ -38,15 +34,14 @@ export async function get_user(req, res) {
 
 export async function get_friends(req, res) {
   try {
-    const user = await User.findById(req.userId)
-      .select('friends')
-      .populate(
-        'friends.friendId',
-        'username profilePhoto bio onlineStatus settings'
-      );
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const friendIds = req.body.friendIds; // This one should be validated
+    const friends = await User.find({ _id: { $in: friendIds } }).select(
+      'username profilePhoto bio onlineStatus'
+    );
 
-    return res.status(200).json({ friends: user.friends });
+    if (!friends) return res.status(404).json({ message: 'Users not found' });
+
+    return res.status(200).json({ friends: friends });
   } catch (error) {
     next(error);
   }
@@ -54,8 +49,49 @@ export async function get_friends(req, res) {
 
 export async function get_chats(req, res, next) {
   try {
-    res.status(200).json({ chats: populatedChats });
+    const chatIds = req.body.chatIds; // This one should be validated
+
+    const user = await User.findById(req.userId).select('chats');
+
+    const chats = await Chat.aggregate([
+      { $match: { _id: { $in: user.chats } } },
+      {
+        $unwind: '$messages',
+      },
+      {
+        $sort: { 'messages.createdAt': -1 },
+      },
+      {
+        $group: { _id: '$_id', latestMessage: { $first: '$messages' } },
+      },
+      {
+        $project: {
+          _id: 1,
+          latestMessage: 1,
+          name: 1,
+          type: 1,
+          photo: 1,
+          users: 1,
+        },
+      },
+    ]);
+
+    /*
+    Two types of chats, private and group chats.
+    for private chats I'd need to get the other user and fetch his profile photo and username
+    for group chats I'd need to get the group chat name and photo
+
+    for both chats I'd need to fetch the last message and the time it was sent
+    */
   } catch (error) {
     next(error);
   }
 }
+
+export async function get_received_requests(req, res, next) {}
+
+export async function get_sent_requests(req, res, next) {}
+
+export async function get_starred_messages(req, res, next) {}
+
+export async function search_users(req, res, next) {}

@@ -1,31 +1,23 @@
 import validate_fields from '../../utils/validation.js';
-import * as joiSchema from '../../config/joi.js';
 
-export default function validate_data(fields) {
+export default function validate_data(fields, validationSchemas, dataSource) {
   return function (req, res, next) {
-    const { email, password, passwordConfirm, username, token } = req.body;
     const errors = validate_fields(
-      {
-        email: email,
-        password: password,
-        passwordConfirm: passwordConfirm,
-        username: username,
-        token: token,
-      },
       fields,
-      {
-        email: joiSchema.emailSchema,
-        password: joiSchema.passwordSchema,
-        passwordConfirm: joiSchema.passwordSchema,
-        username: joiSchema.usernameSchema,
-        token: joiSchema.tokenSchema,
-      }
+      dataSource === 'params'
+        ? req.params
+        : dataSource === 'query'
+        ? req.query
+        : req.body,
+      validationSchemas
     );
     if (Object.keys(errors).length !== 0) {
       return res.status(400).json({ errors: errors });
     }
-    if (passwordConfirm && password !== passwordConfirm) {
-      console.log('passwords do not match');
+    if (
+      req.body.passwordConfirm &&
+      req.body.password !== req.body.passwordConfirm
+    ) {
       return res.status(400).json({
         errors: { passwordConfirm: 'Passwords do not match' },
       });
