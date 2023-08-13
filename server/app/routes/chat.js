@@ -4,19 +4,47 @@ import express from 'express';
 import * as chatController from '../controllers/chat.js';
 import { auth_jwt } from '../middleware/auth.js';
 import upload from '../../config/multer.js';
+import validate_data from '../middleware/validation.js';
+import * as validationSchemas from '../../config/joi.js';
 
 const router = express.Router();
 
-// Anything that receives data should be validated
-
-// Allow the user to send settings, name (needed), picture
 router.post(
   '/create',
+  validate_data(
+    ['chatName', 'chatDescription'],
+    {
+      chatName: validationSchemas.nameStringSchema,
+      chatDescription: validationSchemas.longStringSchema,
+    },
+    'body'
+  ),
   auth_jwt,
-  upload.single('chatPicture'),
+  upload.single('photo'),
   chatController.create_chat
 );
 
-router.get('/search/:name', chatController.get_chat);
+router.get(
+  '/search',
+  validate_data(
+    ['name'],
+    {
+      name: validationSchemas.nameStringSchema,
+    },
+    'query'
+  ),
+  chatController.search_chats
+);
 
-router.get('/:chatId', auth_jwt, chatController.get_chat);
+router.get(
+  '/:chatId',
+  validate_data(
+    ['chatId'],
+    {
+      chatId: validationSchemas.objectIdSchema,
+    },
+    'params'
+  ),
+  auth_jwt,
+  chatController.get_chat
+);

@@ -40,9 +40,6 @@ const groupChatSchema = new mongoose.Schema(
     photo: { type: String, default: 'default_profile.png' },
     members: [{ type: ObjectId, ref: 'User' }],
     admins: [{ type: ObjectId, ref: 'User' }],
-    settings: {
-      onlyAdmins: { type: Boolean, default: false },
-    },
   },
   { discriminatorKey: 'type', _id: false }
 );

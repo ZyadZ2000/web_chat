@@ -76,13 +76,13 @@ router.get(
 );
 
 router.get(
-  '/search/:username',
+  '/search',
   validate_data(
     ['username'],
     {
       username: validationSchemas.usernameSchema,
     },
-    'params'
+    'query'
   ),
   userController.search_users
 );
@@ -138,7 +138,7 @@ router.put(
   validate_data([
     'bio',
     {
-      bio: validationSchemas.bioSchema,
+      bio: validationSchemas.longStringSchema,
     },
     'body',
   ]),

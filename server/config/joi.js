@@ -20,6 +20,10 @@ const arrayObjectIdSchema = Joi.array().items(
   Joi.string().pattern(/^[0-9a-fA-F]{24}$/)
 );
 
+const nameStringSchema = Joi.string().min(3).max(30).required();
+
+const longStringSchema = Joi.string().min(1).max(256);
+
 export {
   emailSchema,
   usernameSchema,
@@ -28,4 +32,6 @@ export {
   objectIdSchema,
   resetTokenSchema,
   arrayObjectIdSchema,
+  nameStringSchema,
+  longStringSchema,
 };
