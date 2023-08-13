@@ -16,13 +16,13 @@ router.post(
     ['email', 'username', 'password', 'passwordConfirm'],
     {
       email: validationSchemas.emailSchema,
-      username: validationSchemas.usernameSchema,
+      username: validationSchemas.nameSchema,
       password: validationSchemas.passwordSchema,
       passwordConfirm: validationSchemas.passwordSchema,
     },
     'body'
   ),
-  upload.single('profilePicture'),
+  upload.single('profilePhoto'),
   authController.signup
 );
 

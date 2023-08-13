@@ -11,6 +11,8 @@ import path from 'path';
 
 // Custom modules
 import authRouter from './routes/auth.js';
+import userRouter from './routes/user.js';
+import chatRouter from './routes/chat.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +36,8 @@ app.use(morgan('common'));
 app.use('/assets', express.static(path.join(__dirname, '..', 'public/assets')));
 
 app.use('/auth', authRouter);
+app.use('/user', userRouter);
+app.use('/chat', chatRouter);
 
 app.use((req, res) => {
   res.status(404).json({ message: "This route doesn't exist" });

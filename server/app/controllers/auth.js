@@ -34,7 +34,7 @@ export async function signup(req, res, next) {
     if (oldUser)
       return res.status(409).json({ message: 'User already exists!' });
 
-    const profilePictureFilename = req.file?.filename || 'default_profile.png';
+    const profilePhotoFilename = req.file?.filename || 'default_profile.png';
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -42,7 +42,7 @@ export async function signup(req, res, next) {
       username: username,
       email: email,
       password: hashedPassword,
-      profilePhoto: profilePictureFilename,
+      profilePhoto: profilePhotoFilename,
     });
 
     await user.save();
@@ -55,7 +55,7 @@ export async function signup(req, res, next) {
 
 export function login(req, res, next) {
   const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, {
-    expiresIn: '1h',
+    expiresIn: '1d',
   });
 
   if (!token) return next(new Error('Could not sign token'));

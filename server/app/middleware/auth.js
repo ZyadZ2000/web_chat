@@ -1,42 +1,35 @@
-// Third Party
+// Third-party libraries
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-// Custom modules
+// Import User model
 import User from '../../models/user.js';
-import validate_fields from '../../utils/validation.js';
-import * as validationSchemas from '../../config/joi.js';
 
-const get_jwt = (req) => {
-  let decodedToken;
-  const authHeader = req.get('Authorization');
-  if (!authHeader) {
-    return null;
-  }
-  const token = authHeader.split(' ')[1];
-
-  decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-
-  return decodedToken;
-};
-
+// Middleware to handle local authentication
 export const auth_local = (fetchData) => {
   return async (req, res, next) => {
     try {
       const { email, password } = req.body;
 
+      // Fetch user based on the provided email
       const user = fetchData
         ? await User.findOne({ email: email }).select(
-            '_id email username profilePhoto bio settings chats starredMessages friends'
+            '_id email username profilePhoto bio chats starredMessages friends'
           )
         : await User.findOne({ email: email }).select('_id');
 
-      if (!user) return res.status(401).json({ message: 'Not authenticated' });
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch)
+      // Check if user exists
+      if (!user) {
         return res.status(401).json({ message: 'Not authenticated' });
+      }
 
+      // Compare provided password with stored hashed password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+
+      // Attach user object to the request for future middleware
       req.user = user;
 
       next();
@@ -46,11 +39,32 @@ export const auth_local = (fetchData) => {
   };
 };
 
+// Middleware to handle JWT authentication
 export const auth_jwt = (req, res, next) => {
   try {
-    const token = get_jwt(req);
-    if (!token) return res.status(401).json({ message: 'Not authenticated' });
-    req.userId = token.userId;
+    let decodedToken;
+
+    const authHeader = req.get('Authorization');
+
+    // Check if authorization header is provided
+    if (!authHeader) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Extract the token from the header
+    const token = authHeader.split(' ')[1];
+
+    // Verify the JWT token
+    decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Check if token is valid
+    if (!decodedToken) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Attach the decoded user ID to the request for future middleware
+    req.userId = decodedToken.userId;
+
     next();
   } catch (error) {
     return next(error);

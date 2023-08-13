@@ -24,7 +24,7 @@ export async function get_user(req, res) {
     const { username } = req.params;
 
     const user = await User.findOne({ username: username }).select(
-      'username bio profilePhoto onlineStatus'
+      '_id username bio profilePhoto onlineStatus'
     );
 
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -37,9 +37,9 @@ export async function get_user(req, res) {
 
 export async function get_friends(req, res) {
   try {
-    const friendIds = req.body.friendIds;
+    const { friendIds } = req.body;
     const friends = await User.find({ _id: { $in: friendIds } }).select(
-      'username profilePhoto bio onlineStatus'
+      '_id username profilePhoto bio onlineStatus'
     );
 
     if (!friends) return res.status(404).json({ message: 'Users not found' });
@@ -52,7 +52,7 @@ export async function get_friends(req, res) {
 
 export async function get_chats(req, res, next) {
   try {
-    const chatIds = req.body.chatIds;
+    const { chatIds } = req.body;
 
     const chats = await Chat.aggregate([
       { $match: { _id: { $in: chatIds } } },
@@ -73,7 +73,11 @@ export async function get_chats(req, res, next) {
           'users._id': 1,
           'users.username': 1,
           'users.profilePhoto': 1,
-          'chat.messages': { $slice: ['$chat.messages', -1] },
+          'users.onlineStatus': 1,
+          'users.bio': 1,
+          messages: { $slice: ['$messages', -1] },
+          'messages.senderId': 1,
+          'messages.content': 1,
         },
       },
     ]);
@@ -108,9 +112,9 @@ export async function get_sent_requests(req, res, next) {
       .populate('chatId', '_id name photo description');
 
     if (!receivedReqs)
-      return res.status(404).json({ message: 'No received requests' });
+      return res.status(404).json({ message: 'No sent requests' });
 
-    return res.status(200).json({ receivedReqs });
+    return res.status(200).json({ sentReqs });
   } catch (error) {
     return next(error);
   }
@@ -126,9 +130,12 @@ export async function get_starred_messages(req, res, next) {
       {
         $lookup: {
           from: 'users',
-          localField: 'chat.messages.userId',
-          foreignField: '_id',
-          as: 'chat.messages.user',
+          let: { senderId: '$chat.messages.senderId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$senderId'] } } },
+            { $project: { _id: 0, username: 1, profilePhoto: 1 } },
+          ],
+          as: 'chat.messages.sender',
         },
       },
       {
@@ -136,8 +143,7 @@ export async function get_starred_messages(req, res, next) {
           _id: 0,
           'chat.messages._id': 1,
           'chat.messages.content': 1,
-          'chat.messages.user': 1,
-          'chat.messages.createdAt': 1,
+          'chat.messages.sender': 1,
         },
       },
     ]);
@@ -186,6 +192,8 @@ export async function update_email(req, res, next) {
     req.user.email = newEmail;
 
     await req.user.save();
+
+    return res.status(200).json({ message: 'Email updated successfully' });
   } catch (error) {
     return next(error);
   }
@@ -195,9 +203,11 @@ export async function update_username(req, res, next) {
   try {
     const { newUsername } = req.body;
 
-    req.user.username = username;
+    req.user.username = newUsername;
 
     await req.user.save();
+
+    return res.status(200).json({ message: 'Username updated successfully' });
   } catch (error) {
     return next(error);
   }
@@ -211,6 +221,8 @@ export async function update_password(req, res, next) {
     req.user.password = hashedPassword;
 
     await req.user.save();
+
+    return res.status(200).json({ message: 'Password updated successfully' });
   } catch (error) {
     return next(error);
   }
@@ -223,6 +235,37 @@ export async function update_bio(req, res, next) {
     req.user.bio = bio;
 
     await req.user.save();
+
+    return res.status(200).json({ message: 'Bio updated successfully' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function update_picture(req, res, next) {
+  try {
+    const profilePhotoFileName = req.file?.filename;
+
+    if (!profilePhotoFileName)
+      return res.status(400).json({ message: 'No file uploaded' });
+
+    req.user.profilePhoto = profilePhotoFileName;
+
+    await req.user.save();
+
+    return res
+      .status(200)
+      .json({ message: 'Profile photo updated successfully' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function delete_user(req, res, next) {
+  try {
+    await User.findByIdAndDelete(req.user._id);
+
+    return res.status(200).json({ message: 'User deleted successfully' });
   } catch (error) {
     return next(error);
   }

@@ -1,4 +1,4 @@
-import Chat from '../../models/chat.js';
+import Chat, { GroupChat } from '../../models/chat.js';
 
 export async function create_chat(req, res, next) {
   try {
@@ -6,12 +6,13 @@ export async function create_chat(req, res, next) {
 
     const photoFileName = req.file?.filename || 'default_profile.png';
 
-    const chat = new Chat({
+    const chat = new GroupChat({
       type: 'group',
       name: chatName,
       description: chatDescription || ' ',
       photo: photoFileName,
       creatorId: req.userId,
+      members: [req.userId],
     });
 
     await chat.save();
@@ -32,7 +33,7 @@ export async function search_chats(req, res, next) {
     const endsWithRegex = new RegExp(`${name}$`, 'i'); // End with
     const containsRegex = new RegExp(name, 'i'); // Contains
 
-    const users = await Chat.find({
+    const chats = await Chat.find({
       $or: [
         { name: exactMatchRegex },
         { name: startsWithRegex },
@@ -53,7 +54,7 @@ export async function get_chat(req, res, next) {
   try {
     const { chatId } = req.params;
 
-    const chat = await Chat.findById(chatId)
+    const chat = await Chat.findOne({ _id: chatId, members: req.userId })
       .populate('members')
       .populate('users')
       .populate('creatorId');

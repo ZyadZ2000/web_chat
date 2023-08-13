@@ -16,14 +16,13 @@ router.get(
   validate_data(
     ['username'],
     {
-      username: validationSchemas.usernameSchema,
+      username: validationSchemas.nameSchema,
     },
     'params'
   ),
   userController.get_user
 );
 
-// This should get the array of requested friends from the user.
 router.get(
   '/profile/friends',
   validate_data(
@@ -80,7 +79,7 @@ router.get(
   validate_data(
     ['username'],
     {
-      username: validationSchemas.usernameSchema,
+      username: validationSchemas.nameSchema,
     },
     'query'
   ),
@@ -109,7 +108,7 @@ router.put(
     {
       email: validationSchemas.emailSchema,
       password: validationSchemas.passwordSchema,
-      newUsername: validationSchemas.usernameSchema,
+      newUsername: validationSchemas.nameSchema,
     },
     'body'
   ),
@@ -149,7 +148,7 @@ router.put(
 router.put(
   '/profile/picture',
   auth_jwt,
-  upload.single('profilePicture'),
+  upload.single('profilePhoto'),
   userController.update_picture
 );
 

@@ -14,13 +14,13 @@ router.post(
   validate_data(
     ['chatName', 'chatDescription'],
     {
-      chatName: validationSchemas.nameStringSchema,
+      chatName: validationSchemas.nameSchema,
       chatDescription: validationSchemas.longStringSchema,
     },
     'body'
   ),
   auth_jwt,
-  upload.single('photo'),
+  upload.single('chatPhoto'),
   chatController.create_chat
 );
 
@@ -29,7 +29,7 @@ router.get(
   validate_data(
     ['name'],
     {
-      name: validationSchemas.nameStringSchema,
+      name: validationSchemas.nameSchema,
     },
     'query'
   ),
