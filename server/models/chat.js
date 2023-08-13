@@ -5,8 +5,7 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 const messageSchema = new mongoose.Schema(
   {
     content: String,
-    userId: { type: ObjectId, required: true, ref: 'User' },
-    readBy: [{ type: ObjectId, ref: 'User' }],
+    senderId: { type: ObjectId, required: true, ref: 'User' },
   },
   {
     timestamps: true,
@@ -27,7 +26,7 @@ const chatSchema = new mongoose.Schema(
 
 const privateChatSchema = new mongoose.Schema(
   {
-    users: [{ type: ObjectId, ref: 'User' }],
+    users: [{ type: ObjectId, ref: 'User', required: true }],
   },
   { discriminatorKey: 'type', _id: false }
 );
@@ -38,7 +37,7 @@ const groupChatSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: { type: String, default: '' },
     photo: { type: String, default: 'default_profile.png' },
-    members: [{ type: ObjectId, ref: 'User' }],
+    members: [{ type: ObjectId, ref: 'User' }], //The creator is the first member
     admins: [{ type: ObjectId, ref: 'User' }],
   },
   { discriminatorKey: 'type', _id: false }
