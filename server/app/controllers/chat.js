@@ -1,4 +1,7 @@
+import mongoose from 'mongoose';
+// Custom modules
 import Chat, { GroupChat } from '../../models/chat.js';
+import User from '../../models/user.js';
 
 export async function create_chat(req, res, next) {
   try {
@@ -7,13 +10,15 @@ export async function create_chat(req, res, next) {
     const photoFileName = req.file?.filename || 'default_profile.png';
 
     const chat = new GroupChat({
-      type: 'group',
+      type: 'groupChat',
       name: chatName,
       description: chatDescription || ' ',
       photo: photoFileName,
-      creatorId: req.userId,
+      creator: req.userId,
       members: [req.userId],
     });
+
+    await User.updateOne({ _id: req.userId }, { $push: { chats: chat._id } });
 
     await chat.save();
 
@@ -52,12 +57,20 @@ export async function search_chats(req, res, next) {
 
 export async function get_chat(req, res, next) {
   try {
-    const { chatId } = req.params;
+    const chatId = req.body.chatId;
+    const userId = new mongoose.Types.ObjectId(req.userId);
 
-    const chat = await Chat.findOne({ _id: chatId, members: req.userId })
-      .populate('members', '_id username photo onlineStatus bio')
-      .populate('users', '_id username photo onlineStatus bio')
-      .populate('creator', '_id username photo onlineStatus bio');
+    const chat = await Chat.findOne({
+      _id: chatId,
+      $or: [{ members: userId }, { users: userId }, { creator: userId }],
+    })
+      .populate('members', '_id username profilePhoto onlineStatus bio')
+      .populate('users', '_id username profilePhoto onlineStatus bio')
+      .populate('creator', '_id username profilePhoto onlineStatus bio')
+      .populate(
+        'messages.sender',
+        '_id username profilePhoto onlineStatus bio'
+      );
 
     if (!chat) return res.status(404).json({ message: 'Chat not found' });
 

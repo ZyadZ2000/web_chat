@@ -36,7 +36,6 @@ router.get(
   chatController.search_chats
 );
 
-// This will require authorization.
 router.get(
   '/',
   validate_data(
