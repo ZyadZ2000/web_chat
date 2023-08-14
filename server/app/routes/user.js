@@ -12,7 +12,7 @@ const router = express.Router();
 router.get('/profile', auth_jwt, userController.get_profile);
 
 router.get(
-  '/profile/:username',
+  '/view/:username',
   validate_data(
     ['username'],
     {
@@ -23,56 +23,17 @@ router.get(
   userController.get_user
 );
 
-router.get(
-  '/profile/friends',
-  validate_data(
-    ['friendIds'],
-    {
-      friendIds: validationSchemas.arrayObjectIdSchema,
-    },
-    'body'
-  ),
-  auth_jwt,
-  userController.get_friends
-);
+router.get('/friends', auth_jwt, userController.get_friends);
+
+router.get('/chats', auth_jwt, userController.get_chats);
 
 router.get(
-  '/profile/chats',
-  validate_data(
-    ['chatIds'],
-    {
-      chatIds: validationSchemas.arrayObjectIdSchema,
-    },
-    'body'
-  ),
-  auth_jwt,
-  userController.get_chats
-);
-
-router.get(
-  '/profile/requests/received',
+  '/requests/received',
   auth_jwt,
   userController.get_received_requests
 );
 
-router.get(
-  '/profile/requests/sent',
-  auth_jwt,
-  userController.get_sent_requests
-);
-
-router.get(
-  '/profile/starred/messages',
-  validate_data(
-    ['messageIds'],
-    {
-      messageIds: validationSchemas.arrayObjectIdSchema,
-    },
-    'body'
-  ),
-  auth_jwt,
-  userController.get_starred_messages
-);
+router.get('/requests/sent', auth_jwt, userController.get_sent_requests);
 
 router.get(
   '/search',
@@ -87,7 +48,7 @@ router.get(
 );
 
 router.put(
-  '/profile/email',
+  '/email',
   validate_data(
     ['email', 'password', 'newEmail'],
     {
@@ -97,12 +58,12 @@ router.put(
     },
     'body'
   ),
-  auth_local(false),
+  auth_local,
   userController.update_email
 );
 
 router.put(
-  '/profile/username',
+  '/username',
   validate_data(
     ['email', 'password', 'newUsername'],
     {
@@ -112,12 +73,12 @@ router.put(
     },
     'body'
   ),
-  auth_local(false),
+  auth_local,
   userController.update_username
 );
 
 router.put(
-  '/profile/password',
+  '/password',
   validate_data(
     ['email', 'password', 'newPass', 'newPassConfirm'],
     {
@@ -128,25 +89,25 @@ router.put(
     },
     'body'
   ),
-  auth_local(false),
+  auth_local,
   userController.update_password
 );
 
 router.put(
-  '/profile/bio',
-  validate_data([
-    'bio',
+  '/bio',
+  validate_data(
+    ['bio'],
     {
       bio: validationSchemas.longStringSchema,
     },
-    'body',
-  ]),
+    'body'
+  ),
   auth_jwt,
   userController.update_bio
 );
 
 router.put(
-  '/profile/picture',
+  '/photo',
   auth_jwt,
   upload.single('profilePhoto'),
   userController.update_picture
@@ -162,7 +123,7 @@ router.delete(
     },
     'body'
   ),
-  auth_local(false),
+  auth_local,
   userController.delete_user
 );
 

@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-
+import mongoose from 'mongoose';
 // Custom Modules
 import User from '../../models/user.js';
 import Chat from '../../models/chat.js';
@@ -8,7 +8,7 @@ import Request from '../../models/request.js';
 export async function get_profile(req, res) {
   try {
     const user = await User.findById(req.userId).select(
-      '_id email username profilePhoto bio chats friends'
+      '_id email username profilePhoto bio ceatedAt'
     );
 
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -24,7 +24,7 @@ export async function get_user(req, res) {
     const { username } = req.params;
 
     const user = await User.findOne({ username: username }).select(
-      '_id username bio profilePhoto onlineStatus'
+      '_id username bio profilePhoto onlineStatus ceatedAt'
     );
 
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -37,12 +37,16 @@ export async function get_user(req, res) {
 
 export async function get_friends(req, res) {
   try {
-    const { friendIds } = req.body;
-    const friends = await User.find({ _id: { $in: friendIds } }).select(
-      '_id username profilePhoto bio onlineStatus'
+    const user = await User.findById(req.userId);
+
+    if (!user.friends)
+      return res.status(404).json({ message: 'Friends not found' });
+
+    const friends = await User.find({ _id: { $in: user.friends } }).select(
+      '_id username profilePhoto onlineStatus bio ceatedAt'
     );
 
-    if (!friends) return res.status(404).json({ message: 'Users not found' });
+    if (!friends) return res.status(404).json({ message: 'Friends not found' });
 
     return res.status(200).json({ friends: friends });
   } catch (error) {
@@ -52,35 +56,31 @@ export async function get_friends(req, res) {
 
 export async function get_chats(req, res, next) {
   try {
-    const { chatIds } = req.body;
+    const user = await User.findById(req.userId);
 
-    const chats = await Chat.aggregate([
-      { $match: { _id: { $in: chatIds } } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'users',
-          foreignField: '_id',
-          as: 'users',
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          name: 1,
-          photo: 1,
-          type: 1,
-          'users._id': 1,
-          'users.username': 1,
-          'users.profilePhoto': 1,
-          'users.onlineStatus': 1,
-          'users.bio': 1,
-          messages: { $slice: ['$messages', -1] },
-          'messages.senderId': 1,
-          'messages.content': 1,
-        },
-      },
-    ]);
+    if (!user.chats)
+      return res.status(404).json({ message: 'Chats not found' });
+
+    const chats = await Chat.find({ _id: { $in: user.chats } })
+      .select({
+        _id: 1,
+        creator: 1,
+        name: 1,
+        photo: 1,
+        description: 1,
+        users: 1,
+        messages: { $slice: -1 },
+        ceatedAt: 1,
+      })
+      .populate('users', '_id username profilePhoto onlineStatus bio ceatedAt')
+      .populate(
+        'creator',
+        '_id username profilePhoto onlineStatus bio ceatedAt'
+      )
+      .populate(
+        'messages.sender',
+        '_id username profilePhoto onlineStatus bio ceatedAt'
+      );
 
     if (!chats) return res.status(404).json({ message: 'Chats not found' });
 
@@ -92,9 +92,10 @@ export async function get_chats(req, res, next) {
 
 export async function get_received_requests(req, res, next) {
   try {
-    const receivedReqs = await Request.find({ receiverId: req.userId })
-      .populate('senderId', '_id username profilePhoto onlineStatus bio')
-      .populate('chatId', '_id name photo description');
+    const userId = new mongoose.Types.ObjectId(req.userId);
+    const receivedReqs = await Request.find({ receiver: userId })
+      .populate('sender', '_id username profilePhoto onlineStatus bio ceatedAt')
+      .populate('chat', '_id name photo description ceatedAt');
 
     if (!receivedReqs)
       return res.status(404).json({ message: 'No received requests' });
@@ -107,53 +108,17 @@ export async function get_received_requests(req, res, next) {
 
 export async function get_sent_requests(req, res, next) {
   try {
-    const sentReqs = await Request.find({ senderId: req.userId })
-      .populate('receiverId', '_id username profilePhoto onlineStatus bio')
-      .populate('chatId', '_id name photo description');
+    const userId = new mongoose.Types.ObjectId(req.userId);
+    const sentReqs = await Request.find({ sender: userId })
+      .populate(
+        'receiver',
+        '_id username profilePhoto onlineStatus bio ceatedAt'
+      )
+      .populate('chat', '_id name photo description ceatedAt');
 
-    if (!receivedReqs)
-      return res.status(404).json({ message: 'No sent requests' });
+    if (!sentReqs) return res.status(404).json({ message: 'No sent requests' });
 
     return res.status(200).json({ sentReqs });
-  } catch (error) {
-    return next(error);
-  }
-}
-
-export async function get_starred_messages(req, res, next) {
-  try {
-    const { messageIds } = req.body;
-    const messages = await Chat.aggregate([
-      {
-        $match: { 'chat.messages._id': { $in: messageIds } },
-      },
-      {
-        $lookup: {
-          from: 'users',
-          let: { senderId: '$chat.messages.senderId' },
-          pipeline: [
-            { $match: { $expr: { $eq: ['$_id', '$$senderId'] } } },
-            { $project: { _id: 0, username: 1, profilePhoto: 1 } },
-          ],
-          as: 'chat.messages.sender',
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          'chat.messages._id': 1,
-          'chat.messages.content': 1,
-          'chat.messages.sender': 1,
-        },
-      },
-    ]);
-
-    if (!messages)
-      return res
-        .status(404)
-        .json({ message: 'No starred messages were found' });
-
-    return res.status(200).json({ messages });
   } catch (error) {
     return next(error);
   }
@@ -175,7 +140,7 @@ export async function search_users(req, res, next) {
         { username: endsWithRegex },
         { username: containsRegex },
       ],
-    }).select('_id username profilePhoto bio onlineStatus');
+    }).select('_id username profilePhoto bio onlineStatus ceatedAt');
 
     if (!users) return res.status(404).json({ message: 'No users found' });
 
@@ -214,7 +179,7 @@ export async function update_username(req, res, next) {
 }
 export async function update_password(req, res, next) {
   try {
-    const { newPass } = req.newPass;
+    const { newPass } = req.body;
 
     const hashedPassword = await bcrypt.hash(newPass, 10);
 
@@ -230,11 +195,9 @@ export async function update_password(req, res, next) {
 
 export async function update_bio(req, res, next) {
   try {
-    const { bio } = req.bio;
+    const { bio } = req.body;
 
-    req.user.bio = bio;
-
-    await req.user.save();
+    await User.findByIdAndUpdate(req.userId, { bio: bio });
 
     return res.status(200).json({ message: 'Bio updated successfully' });
   } catch (error) {
@@ -249,9 +212,9 @@ export async function update_picture(req, res, next) {
     if (!profilePhotoFileName)
       return res.status(400).json({ message: 'No file uploaded' });
 
-    req.user.profilePhoto = profilePhotoFileName;
-
-    await req.user.save();
+    await User.findByIdAndUpdate(req.userId, {
+      profilePhoto: profilePhotoFileName,
+    });
 
     return res
       .status(200)

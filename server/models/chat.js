@@ -5,7 +5,12 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 const messageSchema = new mongoose.Schema(
   {
     content: String,
-    senderId: { type: ObjectId, required: true, ref: 'User' },
+    sender: { type: ObjectId, required: true, ref: 'User' },
+    type: {
+      type: String,
+      enum: ['text', 'image', 'video', 'audio', 'file'],
+      required: true,
+    },
   },
   {
     timestamps: true,
@@ -16,39 +21,33 @@ const chatSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['private', 'group'],
+      enum: ['privateChat', 'groupChat'],
       required: true,
     },
     messages: [messageSchema],
   },
-  { timestamps: true }
+  { discriminatorKey: 'type', timestamps: true }
 );
 
-const privateChatSchema = new mongoose.Schema(
-  {
-    users: [{ type: ObjectId, ref: 'User', required: true }],
-  },
-  { discriminatorKey: 'type', _id: false }
-);
+const privateChatSchema = new mongoose.Schema({
+  users: [{ type: ObjectId, ref: 'User', required: true }],
+});
 
-const groupChatSchema = new mongoose.Schema(
-  {
-    creatorId: { type: ObjectId, ref: 'User', required: true },
-    name: { type: String, required: true },
-    description: { type: String, default: '' },
-    photo: { type: String, default: 'default_profile.png' },
-    members: [{ type: ObjectId, ref: 'User' }], //The creator is the first member
-    admins: [{ type: ObjectId, ref: 'User' }],
-  },
-  { discriminatorKey: 'type', _id: false }
-);
+const groupChatSchema = new mongoose.Schema({
+  creator: { type: ObjectId, ref: 'User', required: true },
+  name: { type: String, required: true },
+  description: { type: String, default: '' },
+  photo: { type: String, default: 'default_profile.png' },
+  members: { type: [{ type: ObjectId, ref: 'User' }], required: true },
+  admins: [{ type: ObjectId, ref: 'User' }],
+});
 
 groupChatSchema.index({ name: 1 });
 
 const Chat = mongoose.model('Chat', chatSchema);
 
-export const PrivateChat = Chat.discriminator('private', privateChatSchema);
+export const PrivateChat = Chat.discriminator('privateChat', privateChatSchema);
 
-export const GroupChat = Chat.discriminator('group', groupChatSchema);
+export const GroupChat = Chat.discriminator('groupChat', groupChatSchema);
 
 export default Chat;

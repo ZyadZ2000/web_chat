@@ -6,37 +6,32 @@ import jwt from 'jsonwebtoken';
 import User from '../../models/user.js';
 
 // Middleware to handle local authentication
-export const auth_local = (fetchData) => {
-  return async (req, res, next) => {
-    try {
-      const { email, password } = req.body;
+export const auth_local = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
 
-      // Fetch user based on the provided email
-      const user = fetchData
-        ? await User.findOne({ email: email }).select(
-            '_id email username profilePhoto bio chats starredMessages friends'
-          )
-        : await User.findOne({ email: email }).select('_id');
+    // Fetch user based on the provided email
+    const user = await User.findOne({ email: email });
 
-      // Check if user exists
-      if (!user) {
-        return res.status(401).json({ message: 'Not authenticated' });
-      }
-
-      // Compare provided password with stored hashed password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(401).json({ message: 'Not authenticated' });
-      }
-
-      // Attach user object to the request for future middleware
-      req.user = user;
-
-      next();
-    } catch (error) {
-      next(error);
+    // Check if user exists
+    if (!user) {
+      return res.status(401).json({ message: 'Not authenticated' });
     }
-  };
+
+    // Compare provided password with stored hashed password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Attach user object to the request for future middleware
+    req.user = user;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Middleware to handle JWT authentication

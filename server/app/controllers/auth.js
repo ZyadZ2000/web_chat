@@ -12,9 +12,6 @@ import path from 'path';
 
 // Custom modules
 import User from '../../models/user.js';
-import validate_fields from '../../utils/validation.js';
-import * as validationSchemas from '../../config/joi.js';
-import { valid } from 'joi';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,12 +52,21 @@ export async function signup(req, res, next) {
 
 export function login(req, res, next) {
   const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, {
-    expiresIn: '1d',
+    expiresIn: '1h',
   });
 
   if (!token) return next(new Error('Could not sign token'));
 
-  return res.status(200).send({ token, user: req.user });
+  return res.status(200).send({
+    token,
+    user: {
+      _id: req.user._id,
+      email: req.user.email,
+      bio: req.user.bio,
+      profilePhoto: req.user.profilePhoto,
+      createdAt: req.user.createdAt,
+    },
+  });
 }
 
 export async function reset_password(req, res, next) {

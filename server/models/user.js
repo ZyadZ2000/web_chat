@@ -35,21 +35,12 @@ const userSchema = new mongoose.Schema(
     chats: [
       {
         type: ObjectId,
-        required: true,
         ref: 'Chat',
-      },
-    ],
-    starredMessages: [
-      {
-        type: ObjectId,
-        required: true,
-        ref: 'Chat.messages',
       },
     ],
     friends: [
       {
         type: ObjectId,
-        required: true,
         ref: 'User',
       },
     ],

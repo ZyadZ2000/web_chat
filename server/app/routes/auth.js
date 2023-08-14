@@ -36,7 +36,7 @@ router.post(
     },
     'body'
   ),
-  auth_local(true), //fetch user data to send back to client
+  auth_local,
   authController.login
 );
 

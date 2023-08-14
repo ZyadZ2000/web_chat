@@ -36,15 +36,18 @@ router.get(
   chatController.search_chats
 );
 
+// This will require authorization.
 router.get(
-  '/:chatId',
+  '/',
   validate_data(
     ['chatId'],
     {
       chatId: validationSchemas.objectIdSchema,
     },
-    'params'
+    'body'
   ),
   auth_jwt,
   chatController.get_chat
 );
+
+export default router;

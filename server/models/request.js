@@ -7,58 +7,50 @@ const requestSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ['private', 'friend', 'group', 'join'],
+      enum: ['privateRequest', 'friendRequest', 'groupRequest', 'joinRequest'],
     },
   },
   {
+    discriminatorKey: 'type',
     timestamps: true,
   }
 );
 
-const privateRequestSchema = new mongoose.Schema(
-  {
-    senderId: { type: ObjectId, required: true, ref: 'User' },
-    receiverId: { type: ObjectId, required: true, ref: 'User' },
-  },
-  { discriminatorKey: 'type', _id: false }
-);
+const privateRequestSchema = new mongoose.Schema({
+  sender: { type: ObjectId, required: true, ref: 'User' },
+  receiver: { type: ObjectId, required: true, ref: 'User' },
+});
 
-const groupChatRequestSchema = new mongoose.Schema(
-  {
-    chatId: { type: ObjectId, required: true, ref: 'Chat' },
-    receiverId: { type: ObjectId, required: true, ref: 'User' },
-  },
-  { discriminatorKey: 'type', _id: false }
-);
+const groupChatRequestSchema = new mongoose.Schema({
+  chat: { type: ObjectId, required: true, ref: 'Chat' },
+  receiver: { type: ObjectId, required: true, ref: 'User' },
+});
 
-const joinGroupRequestSchema = new mongoose.Schema(
-  {
-    senderId: { type: ObjectId, required: true, ref: 'User' },
-    chatId: { type: ObjectId, required: true, ref: 'Chat' },
-  },
-  { discriminatorKey: 'type', _id: false }
-);
+const joinGroupRequestSchema = new mongoose.Schema({
+  sender: { type: ObjectId, required: true, ref: 'User' },
+  chat: { type: ObjectId, required: true, ref: 'Chat' },
+});
 
-privateRequestSchema.index({ senderId: 1, receiverId: 1 });
-groupChatRequestSchema.index({ chatId: 1, receiverId: 1 });
-joinGroupRequestSchema.index({ senderId: 1, chatId: 1 });
+privateRequestSchema.index({ sender: 1, receiver: 1 });
+groupChatRequestSchema.index({ chat: 1, receiver: 1 });
+joinGroupRequestSchema.index({ sender: 1, chat: 1 });
 
 const Request = mongoose.model('Request', requestSchema);
 
 export const PrivateRequest = Request.discriminator(
-  'private',
+  'privateRequest',
   privateRequestSchema
 );
 export const FriendRequest = Request.discriminator(
-  'friend',
+  'friendRequest',
   privateRequestSchema
 );
 export const GroupChatRequest = Request.discriminator(
-  'group',
+  'groupRequest',
   groupChatRequestSchema
 );
 export const JoinGroupRequest = Request.discriminator(
-  'join',
+  'joinRequest',
   joinGroupRequestSchema
 );
 

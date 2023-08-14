@@ -17,9 +17,7 @@ export async function create_chat(req, res, next) {
 
     await chat.save();
 
-    return res
-      .status(201)
-      .json({ message: 'Chat created successfully', chatId: chat._id });
+    return res.status(201).json({ message: 'Chat created successfully', chat });
   } catch (error) {
     return next(error);
   }
@@ -40,7 +38,9 @@ export async function search_chats(req, res, next) {
         { name: endsWithRegex },
         { name: containsRegex },
       ],
-    }).select('_id creatordId name photo description createdAt');
+    })
+      .populate('creator', '_id username photo onlineStatus bio')
+      .select('_id name photo description createdAt');
 
     if (!chats) return res.status(404).json({ message: 'No chats found' });
 
@@ -55,9 +55,9 @@ export async function get_chat(req, res, next) {
     const { chatId } = req.params;
 
     const chat = await Chat.findOne({ _id: chatId, members: req.userId })
-      .populate('members')
-      .populate('users')
-      .populate('creatorId');
+      .populate('members', '_id username photo onlineStatus bio')
+      .populate('users', '_id username photo onlineStatus bio')
+      .populate('creator', '_id username photo onlineStatus bio');
 
     if (!chat) return res.status(404).json({ message: 'Chat not found' });
 
