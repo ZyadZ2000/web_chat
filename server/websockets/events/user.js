@@ -12,6 +12,6 @@ export default function (socket) {
       return cb({ success: false, errors });
     }
 
-    await userHandlers.remove_friend(socket, data, callback);
+    await userHandlers.remove_friend(socket, data, cb);
   });
 }
