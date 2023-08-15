@@ -37,6 +37,19 @@ router.get(
 );
 
 router.get(
+  '/requests',
+  validate_data(
+    ['chatId'],
+    {
+      chatId: validationSchemas.objectIdSchema,
+    },
+    'body'
+  ),
+  auth_jwt,
+  chatController.get_chat_requests
+);
+
+router.get(
   '/',
   validate_data(
     ['chatId'],

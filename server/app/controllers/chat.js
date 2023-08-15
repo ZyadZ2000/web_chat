@@ -67,7 +67,7 @@ export async function search_chats(req, res, next) {
 
 export async function get_chat(req, res, next) {
   try {
-    const chatId = req.body.chatId;
+    const { chatId } = req.body;
     const userId = new mongoose.Types.ObjectId(req.userId);
 
     const chat = await Chat.findOne({
@@ -85,6 +85,34 @@ export async function get_chat(req, res, next) {
     if (!chat) return res.status(404).json({ message: 'Chat not found' });
 
     return res.status(200).json({ chat });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function get_chat_requests(req, res, next) {
+  try {
+    const { chatId } = req.body;
+    const userId = new mongoose.Types.ObjectId(req.userId);
+
+    const chat = await GroupChat.findOne({
+      _id: chatId,
+      $or: [{ admins: userId }, { creator: userId }],
+    });
+
+    if (!chat)
+      return res.status(401).json({
+        message: 'Requests can only be viewed by admins or the creator',
+      });
+
+    const requests = await Request.find({
+      chat: new mongoose.Types.ObjectId(chatId),
+    });
+
+    if (!requests)
+      return res.status(404).json({ message: 'No requests were found' });
+
+    return res.status(200).json({ requests });
   } catch (error) {
     return next(error);
   }
