@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 
 // Import User model
 import User from '../../models/user.js';
+import verifyAndCacheToken from '../../utils/jwtCache.js';
 
 // Middleware to handle local authentication
 export const auth_local = async (req, res, next) => {
@@ -35,7 +36,7 @@ export const auth_local = async (req, res, next) => {
 };
 
 // Middleware to handle JWT authentication
-export const auth_jwt = (req, res, next) => {
+export const auth_jwt = async (req, res, next) => {
   try {
     let decodedToken;
 
@@ -50,7 +51,7 @@ export const auth_jwt = (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     // Verify the JWT token
-    decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    decodedToken = await verifyAndCacheToken(token);
 
     // Check if token is valid
     if (!decodedToken) {

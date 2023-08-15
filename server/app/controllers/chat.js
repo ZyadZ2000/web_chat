@@ -4,6 +4,8 @@ import Chat, { GroupChat } from '../../models/chat.js';
 import User from '../../models/user.js';
 
 export async function create_chat(req, res, next) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { chatName, chatDescription } = req.body;
 
@@ -18,12 +20,20 @@ export async function create_chat(req, res, next) {
       members: [req.userId],
     });
 
-    await User.updateOne({ _id: req.userId }, { $push: { chats: chat._id } });
+    await User.updateOne(
+      { _id: req.userId },
+      { $push: { chats: chat._id } }
+    ).session(session);
 
-    await chat.save();
+    await chat.save().session(session);
+
+    await session.commitTransaction();
+    session.endSession();
 
     return res.status(201).json({ message: 'Chat created successfully', chat });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     return next(error);
   }
 }
