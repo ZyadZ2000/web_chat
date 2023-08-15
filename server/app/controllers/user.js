@@ -224,12 +224,12 @@ export async function update_picture(req, res, next) {
   }
 }
 
-export async function delete_user(req, res, next) {
-  try {
-    await User.findByIdAndDelete(req.user._id);
+// export async function delete_user(req, res, next) {
+//   try {
+//     await User.findByIdAndDelete(req.user._id);
 
-    return res.status(200).json({ message: 'User deleted successfully' });
-  } catch (error) {
-    return next(error);
-  }
-}
+//     return res.status(200).json({ message: 'User deleted successfully' });
+//   } catch (error) {
+//     return next(error);
+//   }
+// }
