@@ -8,6 +8,12 @@ import validationSchemas from '../../config/joi.js';
   needs to listen to.
 */
 export default function (socket) {
+  socket.on('request:send:private');
+
+  socket.on('request:send:group');
+
+  socket.on('request:send:join');
+
   socket.on('request:accept', async (data, cb) => {
     const errors = validate_fields(['requestId'], data, {
       requestId: validationSchemas.objectIdSchema,

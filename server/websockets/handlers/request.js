@@ -1,30 +1,8 @@
 import mongoose from 'mongoose';
 import Request from '../../models/request.js';
 import User from '../../models/user.js';
-import { PrivateChat } from '../../models/chat.js';
+import { GroupChat, PrivateChat } from '../../models/chat.js';
 
-/*
- I have 4 types of requests, let's talk about accepting each one first:
-
- - privateRequest: upon acceptance, I chat room will be created and its info (_id), along with the other
-    user info will be sent. (the chat room will be added to each user document)
- - friendRequest: the same, but without the chat room.
- - groupRequest: the user must be added to the group, and the chat id will be added to the user, and the group
-    info will also be sent to the user, the chat room would be informed by this.
- - joinRequest: this could only be accepted and viewed by admins, the user will be added to the group, and the chat
-    room will be informed.
-
- When it comes to declining, I guess the perfect case would be telling the chat admins and creator that the request
- was declined, and in terms of private requests, informing the other user is important
-*/
-
-/*
- A little problem has emerged actually, you know that I add data, when I add data, I want to make sure that data
- is actually not redundant, like two users can't have two private chats, they can't add themselved twice, you see
- what I mean ? I might handle this in the request sending since I already handle this on the server, I will make sure
- that it doesn't allow redundancy, that's a little better.
-
-*/
 export async function accept_request(socket, data, cb) {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -43,8 +21,10 @@ export async function accept_request(socket, data, cb) {
         return accept_friend_request(socket.user, request, session, cb);
         break;
       case 'groupRequest':
+        return accept_group_request(socket.user, request, session, cb);
         break;
       case 'joinRequest':
+        return accept_join_request(socket.user, request, session, cb);
         break;
       default:
         return cb({ success: false, error: 'Invalid request type' });
@@ -58,32 +38,109 @@ export async function accept_request(socket, data, cb) {
 
 export async function decline_request(socket, data, cb) {
   try {
+    const { requestId } = data;
+
+    const request = await Request.findById(requestId);
+
+    if (!request) return cb({ success: false, error: 'Request not found' });
+
+    let sender;
+    switch (request.type) {
+      case 'privateRequest':
+      case 'friendRequest':
+        if (request.receiver !== socket.user._id)
+          return cb({
+            success: false,
+            error: 'Not authorized to decline the request',
+          });
+
+        sender = await User.findById(request.sender).select('_id');
+
+        await request.deleteOne();
+        cb({ success: true });
+
+        return global.io.to(sender._id).emit('request:decline', {
+          type: request.type,
+          by: {
+            _id: socket.user._id,
+            username: socket.user.username,
+            bio: socket.user.bio,
+            profilePhoto: socket.user.profilePhoto,
+            onlineStatus: socket.user.onlineStatus,
+          },
+        });
+        break;
+      case 'groupRequest':
+        if (request.receiver !== socket.user._id)
+          return cb({
+            success: false,
+            error: 'Not authorized to decline the request',
+          });
+
+        await request.deleteOne();
+
+        return cb({ success: true });
+        break;
+      case 'joinRequest':
+        const chat = await GroupChat.findOne({
+          _id: request.chat,
+          $or: [{ admin: socket.user._id }, { creator: socket.user._id }],
+        }).select('_id name');
+
+        if (!chat)
+          return cb({
+            success: false,
+            error: 'Not authorized to decline the request',
+          });
+
+        sender = await User.findById(request.sender).select('_id');
+
+        await request.deleteOne();
+
+        cb({ success: true });
+
+        return global.io.to(chat._id).emit('request:decline', {
+          type: 'joinRequest',
+          chat: {
+            _id: chat._id,
+            name: chat.name,
+          },
+        });
+        break;
+      default:
+        return cb({ success: false, error: 'Invalid request type' });
+    }
   } catch (error) {
     return cb({ success: false, error });
   }
 }
 
-async function accept_private_request(user, request, session, cb) {
-  if (request.receiver !== user._id)
-    return cb({
-      success: false,
-      error: 'Not authorized to accept the request',
-    });
+async function handle_private_chat_request(
+  user,
+  request,
+  session,
+  acceptDecline
+) {
+  if (request.receiver !== user._id) return false;
   const sender = await User.findById(request.sender).select(
     '_id username bio profilePhoto onlineStatus'
   );
-  const chat = new PrivateChat({
-    type: 'privateChat',
-    users: [user._id, sender._id],
-  });
+  let chat;
+  if (acceptDecline === 'accept') {
+    chat = new PrivateChat({
+      type: 'privateChat',
+      users: [user._id, sender._id],
+    });
 
-  user.chats.push(chat._id);
-  sender.chats.push(chat._id);
+    user.chats.push(chat._id);
+    sender.chats.push(chat._id);
 
-  await chat.save().session(session);
+    await chat.save().session(session);
+    await user.save().session(session);
+    await sender.save().session(session);
+  }
+
   await request.deleteOne().session(session);
-  await user.save().session(session);
-  await sender.save().session(session);
 
   cb({ success: true, chat, sender });
 
@@ -128,5 +185,63 @@ async function accept_friend_request(user, request, session, cb) {
       profilePhoto: user.profilePhoto,
       onlineStatus: user.onlineStatus,
     },
+  });
+}
+
+async function accept_group_request(user, request, session, cb) {
+  if (request.receiver !== user._id)
+    return cb({
+      success: false,
+      error: 'Not authorized to accept the request',
+    });
+
+  const chat = await GroupChat.findById(request.chat).select(
+    'name photo description creator createdAt'
+  );
+
+  user.chats.push(chat._id);
+  chat.members.push(user._id);
+
+  await user.save().session(session);
+  await chat.save().session(session);
+  await request.deleteOne().session(session);
+
+  cb({ success: true, chat });
+
+  return global.io.to(chat._id).emit('chat:join', {
+    user: {
+      _id: user._id,
+      username: user.username,
+      bio: user.bio,
+      profilePhoto: user.profilePhoto,
+      onlineStatus: user.onlineStatus,
+    },
+  });
+}
+
+async function accept_join_request(user, request, session, cb) {
+  const chat = await GroupChat.findOne({
+    _id: request.chat,
+    $or: [{ admin: user._id }, { creator: user._id }],
+  }).select('name photo description creator createdAt');
+
+  if (!chat)
+    return cb({ success: false, error: 'Not authorized to accept request' });
+
+  const acceptedUser = await User.findById(request.receiver).select(
+    '_id username bio profilePhoto onlineStatus'
+  );
+
+  acceptedUser.chats.push(chat._id);
+  chat.members.push(acceptedUser._id);
+
+  await acceptedUser.save().session(session);
+  await chat.save().session(session);
+  await request.deleteOne().session(session);
+
+  cb({ success: true, user: acceptedUser });
+
+  return global.io.to(chat._id).emit('chat:join', {
+    user: acceptedUser,
   });
 }

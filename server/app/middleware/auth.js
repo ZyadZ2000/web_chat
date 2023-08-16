@@ -5,24 +5,17 @@ import jwt from 'jsonwebtoken';
 // Import User model
 import User from '../../models/user.js';
 import verifyAndCacheToken from '../../utils/jwtCache.js';
-
+import { verify_credentials } from '../../utils/auth.js';
 // Middleware to handle local authentication
 export const auth_local = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     // Fetch user based on the provided email
-    const user = await User.findOne({ email: email });
+    const user = await verify_credentials(email, password);
 
     // Check if user exists
     if (!user) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-
-    // Compare provided password with stored hashed password
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
