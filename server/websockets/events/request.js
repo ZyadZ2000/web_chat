@@ -16,8 +16,34 @@ function handle_request(isAccept) {
   };
 }
 
+function private_or_friend_request(isPrivate) {
+  return async (data, cb) => {
+    const errors = validate_fields(['receiverId'], data, {
+      receiverId: validationSchemas.objectIdSchema,
+    });
+
+    if (Object.keys(errors).length !== 0) {
+      return cb({ success: false, errors });
+    }
+
+    await requestHandlers.send_private_or_friend_request(
+      socket,
+      data,
+      cb,
+      isPrivate
+    );
+  };
+}
 export default function (socket) {
-  socket.on('request:send:private');
+  socket.on(
+    'request:send:private',
+    private_or_friend_request(true /* sending a private request */)
+  );
+
+  socket.on(
+    'request:send:friend',
+    private_or_friend_request(false /* sending a friend request */)
+  );
 
   socket.on('request:send:group');
 

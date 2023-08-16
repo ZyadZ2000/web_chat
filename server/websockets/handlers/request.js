@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Request from '../../models/request.js';
+import Request, { PrivateRequest } from '../../models/request.js';
 import User from '../../models/user.js';
 import { GroupChat, PrivateChat } from '../../models/chat.js';
 
@@ -54,6 +54,56 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
   } catch (error) {
     session.abortTransaction();
     session.endSession();
+    return cb({ success: false, error });
+  }
+}
+
+export async function send_private_or_friend_request(
+  socket,
+  data,
+  cb,
+  isPrivate
+) {
+  try {
+    const { receiverId } = data;
+    const receiver = await User.findById(receiverId).select('_id');
+    if (!receiver) throw new Error('Receiver not found');
+
+    if (isPrivate) {
+      const chat = await PrivateChat.findOne({
+        users: { $all: [socket.user._id, receiver._id] },
+      }).select('_id');
+
+      if (chat)
+        throw new Error('A private chat with the receiver already exists');
+    } else {
+      const isFriend = socket.user.friends.includes(receiver._id);
+      if (isFriend) throw new Error('You are already friends');
+    }
+
+    let request;
+    request = new Request({
+      type: isPrivate ? 'privateRequest' : 'friendRequest',
+      sender: socket.user._id,
+      receiver: receiver._id,
+    });
+
+    await request.save();
+
+    cb({ success: true });
+
+    return global.io.to(receiver._id).emit('request:receive', {
+      type: request.type,
+      requestId: request._id,
+      by: {
+        _id: socket.user._id,
+        username: socket.user.username,
+        bio: socket.user.bio,
+        profilePhoto: socket.user.profilePhoto,
+        onlineStatus: socket.user.onlineStatus,
+      },
+    });
+  } catch (error) {
     return cb({ success: false, error });
   }
 }
