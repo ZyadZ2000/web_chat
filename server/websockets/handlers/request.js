@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
-import Request, { PrivateRequest } from '../../models/request.js';
+import Request, {
+  GroupChatRequest,
+  JoinGroupRequest,
+  PrivateRequest,
+} from '../../models/request.js';
 import User from '../../models/user.js';
 import { GroupChat, PrivateChat } from '../../models/chat.js';
 
@@ -103,6 +107,118 @@ export async function send_private_or_friend_request(
         onlineStatus: socket.user.onlineStatus,
       },
     });
+  } catch (error) {
+    return cb({ success: false, error });
+  }
+}
+
+export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
+  try {
+    let receiverId;
+    let receiver;
+
+    const chatId = data.chatId;
+
+    if (isGroupReq) {
+      receiverId = data.receiverId;
+
+      receiver = await User.findById(receiverId).select('_id');
+
+      if (!receiver) throw new Error('Receiver not found');
+    }
+    const chat = await GroupChat.aggregate([
+      {
+        $match: { _id: chatId },
+      },
+      isGroupReq
+        ? {
+            $addFields: {
+              isAuthorized: {
+                $cond: {
+                  if: {
+                    $or: [
+                      { $in: [socket.user._id, '$admins'] },
+                      { $eq: [socket.user._id, '$creator'] },
+                    ],
+                  },
+                  then: true,
+                  else: false,
+                },
+              },
+              isAlreadyMember: {
+                $cond: {
+                  if: {
+                    $in: [receiver._id, '$members'],
+                  },
+                  then: true,
+                  else: false,
+                },
+              },
+            },
+          }
+        : {
+            $addFields: {
+              isAlreadyMember: {
+                $cond: {
+                  if: {
+                    $in: [socket.user._id, '$members'],
+                  },
+                  then: true,
+                  else: false,
+                },
+              },
+            },
+          },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          photo: 1,
+          description: 1,
+          creator: 1,
+          createdAt: 1,
+          isAuthorized: 1,
+          isAlreadyMember: 1,
+        },
+      },
+    ]);
+
+    if (!chat) throw new Error('Chat not found');
+
+    if (isGroupReq && !chat.isAuthorized) throw new Error('Not authorized');
+
+    if (chat.isAlreadyMember) throw new Error('User is already a member');
+
+    const request = isGroupReq
+      ? new GroupChatRequest({
+          chat: chat._id,
+          receiver: receiver._id,
+        })
+      : new JoinGroupRequest({
+          sender: socket.user._id,
+          chat: chat._id,
+        });
+
+    await request.save();
+
+    cb({ success: true });
+
+    return global.io
+      .to(isGroupReq ? receiver._id : chat._id)
+      .emit('request:receive', {
+        type: request.type,
+        requestId: request._id,
+        chat: isGroupReq ? chat : null,
+        sender: isGroupReq
+          ? {
+              _id: socket.user._id,
+              username: socket.user.username,
+              bio: socket.user.bio,
+              profilePhoto: socket.user.profilePhoto,
+              onlineStatus: socket.user.onlineStatus,
+            }
+          : null,
+      });
   } catch (error) {
     return cb({ success: false, error });
   }

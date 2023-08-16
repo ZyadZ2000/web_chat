@@ -34,6 +34,7 @@ function private_or_friend_request(isPrivate) {
     );
   };
 }
+
 export default function (socket) {
   socket.on(
     'request:send:private',
@@ -45,9 +46,39 @@ export default function (socket) {
     private_or_friend_request(false /* sending a friend request */)
   );
 
-  socket.on('request:send:group');
+  socket.on('request:send:group', async (data, cb) => {
+    const errors = validate_fields(['receiverId', 'chatId'], data, {
+      chatId: validationSchemas.objectIdSchema,
+      receiverId: validationSchemas.objectIdSchema,
+    });
 
-  socket.on('request:send:join');
+    if (Object.keys(errors).length !== 0) {
+      return cb({ success: false, errors });
+    }
+
+    await requestHandlers.send_group_or_join_request(
+      socket,
+      data,
+      cb,
+      true /* to indicate it's a group request */
+    );
+  });
+
+  socket.on('request:send:join', async (data, cb) => {
+    const errors = validate_fields(['chatId'], data, {
+      chatId: validationSchemas.objectIdSchema,
+    });
+
+    if (Object.keys(errors).length !== 0) {
+      return cb({ success: false, errors });
+    }
+    await requestHandlers.send_group_or_join_request(
+      socket,
+      data,
+      cb,
+      false /* to indicate it's a join request */
+    );
+  });
 
   socket.on('request:accept', handle_request(true /* to accept the request */));
 
