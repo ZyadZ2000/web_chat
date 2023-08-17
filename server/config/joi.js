@@ -21,6 +21,10 @@ const arrayObjectIdSchema = Joi.array().items(
   Joi.string().pattern(/^[0-9a-fA-F]{24}$/)
 );
 
+const messageContentSchema = Joi.string().min(1).max(512);
+
+const messageTypeSchema = Joi.string().valid(['file', 'text']).required();
+
 const resetTokenSchema = Joi.string().length(64).hex().required();
 
 export {
@@ -31,4 +35,6 @@ export {
   resetTokenSchema,
   arrayObjectIdSchema,
   longStringSchema,
+  messageContentSchema,
+  messageTypeSchema,
 };

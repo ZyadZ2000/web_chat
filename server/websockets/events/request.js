@@ -9,7 +9,7 @@ function handle_request(isAccept) {
     });
 
     if (Object.keys(errors).length !== 0) {
-      return cb({ success: false, errors });
+      return cb({ success: false, error: errors });
     }
 
     await requestHandlers.accept_or_decline_request(socket, data, cb, isAccept);
@@ -37,16 +37,16 @@ function private_or_friend_request(isPrivate) {
 
 export default function (socket) {
   socket.on(
-    'request:send:private',
+    'request:sendPrivate',
     private_or_friend_request(true /* sending a private request */)
   );
 
   socket.on(
-    'request:send:friend',
+    'request:sendFriend',
     private_or_friend_request(false /* sending a friend request */)
   );
 
-  socket.on('request:send:group', async (data, cb) => {
+  socket.on('request:sendGroup', async (data, cb) => {
     const errors = validate_fields(['receiverId', 'chatId'], data, {
       chatId: validationSchemas.objectIdSchema,
       receiverId: validationSchemas.objectIdSchema,
@@ -64,7 +64,7 @@ export default function (socket) {
     );
   });
 
-  socket.on('request:send:join', async (data, cb) => {
+  socket.on('request:sendJoin', async (data, cb) => {
     const errors = validate_fields(['chatId'], data, {
       chatId: validationSchemas.objectIdSchema,
     });

@@ -4,8 +4,8 @@ import { Server } from 'socket.io';
 import verifyAndCacheToken from '../utils/jwtCache.js';
 import User from '../models/user.js';
 import user_events from './events/user.js';
-import request_events from './events/user.js';
-import chat_events from './events/user.js';
+import request_events from './events/request.js';
+import chat_events from './events/chat.js';
 
 global.io;
 
@@ -42,6 +42,10 @@ function io_init(server) {
 
   global.io.on('connection', (socket) => {
     socket.join(socket.user._id);
+
+    socket.user.chats.forEach((chat) => {
+      socket.join(chat);
+    });
 
     socket.use(async (_, next) => {
       try {
