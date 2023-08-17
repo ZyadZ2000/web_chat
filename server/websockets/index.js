@@ -14,6 +14,7 @@ function io_init(server) {
     cors: {
       origin: '*',
     },
+    maxHttpBufferSize: 3e7, //max of 30 MBs.
   });
 
   global.io.use(async (socket, next) => {

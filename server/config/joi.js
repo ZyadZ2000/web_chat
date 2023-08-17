@@ -37,4 +37,5 @@ export {
   longStringSchema,
   messageContentSchema,
   messageTypeSchema,
+  fileSizeSchema,
 };
