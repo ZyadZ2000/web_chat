@@ -9,8 +9,8 @@ import http from 'http';
 import app from './app/index.js';
 import io_init from './websockets/index.js';
 
-const server = http.createServer(app);
-io_init(server);
+const server = http.createServer(app); // create a server with the express app.
+io_init(server); // initialize the socket.io server.
 
 dotenv.config();
 
@@ -24,4 +24,5 @@ mongoose
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
-  });
+  })
+  .catch((err) => console.error(err));

@@ -1,4 +1,7 @@
+// NPM Modules
 import mongoose from 'mongoose';
+
+// Custom Modules
 import Request from '../../models/request.js';
 import { GroupChat } from '../../models/chat.js';
 
@@ -11,18 +14,13 @@ export async function delete_request(req, res, next) {
 
     if (request.type === 'privateRequest' || request.type === 'friendRequest') {
       if (request.sender !== userId)
-        return res
-          .status(401)
-          .json({ message: 'You are not authorized to delete this request' });
+        return res.status(401).json({ message: 'Not authorized' });
     } else if (request.type === 'groupRequest') {
       const chat = await GroupChat.findOne({
         _id: request.chat,
         $or: [{ admin: userId }, { creator: userId }],
       });
-      if (!chat)
-        return res
-          .status(401)
-          .json({ message: 'You are not authorized to delete this request' });
+      if (!chat) return res.status(401).json({ message: 'Not authorized' });
     }
 
     await request.deleteOne();

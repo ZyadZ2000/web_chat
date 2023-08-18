@@ -1,6 +1,8 @@
+// NPM Packages
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 
+// Node Modules
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -15,7 +17,7 @@ const cacheMaxSize = 30 * 1024 * 1024; // 30 megabytes
 let currentCacheSize = 0;
 
 // Verify and cache the JWT
-function verifyAndCacheToken(token) {
+function verify_and_cache_token(token) {
   return new Promise((resolve, reject) => {
     // Check if the token is cached
     if (tokenCache[token]) {
@@ -50,4 +52,4 @@ function verifyAndCacheToken(token) {
   });
 }
 
-export default verifyAndCacheToken;
+export default verify_and_cache_token;

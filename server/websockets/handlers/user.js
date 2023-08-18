@@ -1,5 +1,7 @@
+// NPM Packages
 import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
+
+// Custom Modules
 import User from '../../models/user.js';
 import Request from '../../models/request.js';
 import { verify_credentials } from '../../utils/auth.js';
@@ -9,20 +11,23 @@ export async function remove_friend(socket, data, cb) {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { friendId } = data;
+    const friendId = new mongoose.Types.ObjectId(data);
 
     // Find the friend by ID and select relevant fields
-    friend = await User.findById(friendId).select('_id username friends');
+    friend = await User.findOne({
+      _id: friendId,
+      friends: socket.user._id /* Check if both users are friends */,
+    }).select('_id username bio profilePhoto onlineStatus createdAt');
 
-    if (!friend) return cb({ success: false, error: 'Friend not found' });
+    if (!friend) throw new Error('Friend not found');
 
     // Remove friend from both users' friends arrays
-    socket.user.friends = socket.user.friends.filter((f) => f !== friend._id);
-    friend.friends = friend.friends.filter((f) => f !== socket.user._id);
-
-    // Save both users' updated data using the session
-    await socket.user.save().session(session);
-    await friend.save().session(session);
+    await socket.user
+      .updateOne({ $pull: { friends: friend._id } })
+      .session(session);
+    await friend
+      .updateOne({ $pull: { friends: socket.user._id } })
+      .session(session);
 
     // Commit the transaction and end the session
     await session.commitTransaction();
@@ -36,10 +41,10 @@ export async function remove_friend(socket, data, cb) {
       by: {
         _id: socket.user._id,
         username: socket.user.username,
-      },
-      removed: {
-        _id: friend._id,
-        username: friend.username,
+        bio: socket.user.bio,
+        profilePhoto: socket.user.profilePhoto,
+        onlineStatus: socket.user.onlineStatus,
+        createdAt: socket.user.createdAt,
       },
     });
   } catch (error) {
@@ -60,9 +65,7 @@ export async function delete_user(socket, data, cb) {
     const user = await verify_credentials(email, password);
 
     // Check if user exists
-    if (!user) {
-      return cb({ success: false, error: 'User not found' });
-    }
+    if (!user) throw new Error('Not authenticated');
 
     await User.updateMany(
       { friends: socket.user._id },
@@ -79,6 +82,10 @@ export async function delete_user(socket, data, cb) {
     session.endSession();
 
     cb({ success: true });
+
+    global.io.emit('user:delete', {
+      _id: socket.user._id,
+    });
 
     return socket.disconnect();
   } catch (error) {

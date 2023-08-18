@@ -1,3 +1,4 @@
+// NPM Packages
 import { v4 as uuidv4 } from 'uuid';
 import { fileTypeFromBuffer } from 'file-type';
 import mongoose from 'mongoose';
@@ -7,6 +8,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
+// Custom Modules
 import Chat from '../../models/chat.js';
 import User from '../../models/user.js';
 
@@ -71,7 +73,7 @@ export async function send_message(socket, data, cb) {
 
         writeStream.on('finish', async () => {
           const message = {
-            type: 'media',
+            type: 'file',
             sender: socket.user._id,
             content: fileName,
           };
@@ -168,7 +170,7 @@ export async function add_or_remove_admin(socket, data, cb, isAdd) {
     return global.io
       .to(chat._id)
       .emit(isAdd ? 'chat:addAdmin' : 'chat:removeAdmin', {
-        adminId: admin._id,
+        admin: { _id: admin._id, username: admin.username },
       });
   } catch (error) {
     return cb({ success: false, error });
@@ -191,34 +193,67 @@ export async function remove_member(socket, data, cb) {
       },
       {
         $addFields: {
-          isCreatorOrAdmin: {
+          isRequestorCreator: {
             $cond: {
-              if: {
-                $or: [
-                  { $eq: ['$creator', socket.user._id] },
-                  { $in: [socket.user._id, '$admins'] },
-                ],
-              },
+              if: { $eq: ['$creator', socket.user._id] },
               then: true,
               else: false,
             },
           },
-          isMember: {
+          isRequestorAdmin: {
+            $cond: {
+              if: { $in: [socket.user._id, '$admins'] },
+              then: true,
+              else: false,
+            },
+          },
+          isOtherUserMember: {
             $cond: {
               if: { $in: [member._id, '$members'] },
               then: true,
               else: false,
             },
           },
+          isOtherUserAdmin: {
+            $cond: {
+              if: { $in: [member._id, '$admins'] },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          creator: 1,
+          isRequestorCreator: 1,
+          isRequestorAdmin: 1,
+          isOtherUserMember: 1,
+          isOtherUserAdmin: 1,
         },
       },
     ]);
 
+    if (member._id === chat.creator) throw new Error('Cannot remove creator');
     if (!chat) throw new Error('Chat not found');
-    if (!chat.isCreatorOrAdmin) throw new Error('Not authorized');
-    if (!chat.isMember) throw new Error('User is not a member');
+    if (!chat.isRequestorCreator && !chat.isRequestorAdmin)
+      throw new Error('Not authorized');
+    if (!chat.isOtherUserMember) throw new Error('User is not a member');
 
-    chat.updateOne({ $pull: { members: member._id } }).session(session);
+    if (chat.isRequestorAdmin && chat.isOtherUserAdmin)
+      throw new Error('Only the creator can remove admins');
+
+    if (chat.isOtherUserAdmin) {
+      chat
+        .updateOne({
+          $pull: { members: member._id },
+          $pull: { admins: member._id },
+        })
+        .session(session);
+    } else {
+      chat.updateOne({ $pull: { members: member._id } }).session(session);
+    }
     member.updateOne({ $pull: { chats: chat._id } }).session(session);
 
     await session.commitTransaction();
@@ -227,7 +262,7 @@ export async function remove_member(socket, data, cb) {
     cb({ success: true });
 
     return global.io.to(chat._id).emit('chat:removeMember', {
-      memberId: member._id,
+      member: { _id: member._id, username: member.username },
     });
   } catch (error) {
     await session.abortTransaction();
@@ -254,14 +289,38 @@ export async function leave_chat(socket, data, cb) {
               else: false,
             },
           },
+          isAdmin: {
+            $cond: {
+              if: { $in: [socket.user._id, '$admins'] },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          isMember: 1,
+          isAdmin: 1,
         },
       },
     ]);
 
     if (!chat) throw new Error('Chat not found');
-    if (!chat.isMember) throw new Error('Not authorized');
+    if (!chat.isMember) throw new Error('Already not a member');
 
-    chat.updateOne({ $pull: { members: socket.user._id } }).session(session);
+    if (chat.isAdmin) {
+      chat
+        .updateOne({
+          $pull: { members: member._id },
+          $pull: { admins: member._id },
+        })
+        .session(session);
+    } else {
+      chat.updateOne({ $pull: { members: socket.user._id } }).session(session);
+    }
+
     socket.user.updateOne({ $pull: { chats: chat._id } }).session(session);
 
     await session.commitTransaction();
@@ -270,7 +329,7 @@ export async function leave_chat(socket, data, cb) {
     cb({ success: true });
 
     return global.io.to(chat._id).emit('chat:leave', {
-      memberId: socket.user._id,
+      member: { _id: socket.user._id, username: socket.user.username },
     });
   } catch (error) {
     await session.abortTransaction();
@@ -288,24 +347,25 @@ export async function change_name_or_photo(socket, data, cb, isName) {
       },
       {
         $addFields: {
-          isCreatorOrAdmin: {
+          isCreator: {
             $cond: {
-              if: {
-                $or: [
-                  { $eq: ['$creator', socket.user._id] },
-                  { $in: [socket.user._id, '$admins'] },
-                ],
-              },
+              if: { $eq: ['$creator', socket.user._id] },
               then: true,
               else: false,
             },
           },
         },
       },
+      {
+        $project: {
+          _id: 1,
+          isCreator: 1,
+        },
+      },
     ]);
 
     if (!chat) throw new Error('Chat not found');
-    if (!chat.isCreatorOrAdmin) throw new Error('Not authorized');
+    if (!chat.isCreator) throw new Error('Not authorized');
 
     if (isName) {
       await chat.updateOne({ $set: { name: chatName } });

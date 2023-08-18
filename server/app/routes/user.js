@@ -113,18 +113,4 @@ router.put(
   userController.update_picture
 );
 
-// router.delete(
-//   '/',
-//   validate_data(
-//     ['email', 'password'],
-//     {
-//       email: validationSchemas.emailSchema,
-//       password: validationSchemas.passwordSchema,
-//     },
-//     'body'
-//   ),
-//   auth_local,
-//   userController.delete_user
-// );
-
 export default router;

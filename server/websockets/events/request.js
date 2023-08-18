@@ -1,8 +1,36 @@
+// Custom Modules
 import * as requestHandlers from '../handlers/request.js';
 import validate_fields from '../../utils/validation.js';
 import validationSchemas from '../../config/joi.js';
 
-function handle_request(isAccept) {
+export default function (socket) {
+  socket.on(
+    'request:sendPrivate',
+    handle_send_private_or_friend_request(true /* sending a private request */)
+  );
+
+  socket.on(
+    'request:sendFriend',
+    handle_send_private_or_friend_request(false /* sending a friend request */)
+  );
+
+  socket.on('request:sendJoin', handle_send_group_or_join_request(false));
+
+  socket.on('request:sendGroup', handle_send_group_or_join_request(true));
+
+  socket.on(
+    'request:accept',
+    handle_accept_or_decline_request(true /* to accept the request */)
+  );
+
+  socket.on(
+    'request:decline',
+    handle_accept_or_decline_request(false /* to decline the request */)
+  );
+}
+
+// Private Functions
+function handle_accept_or_decline_request(isAccept) {
   return async (data, cb) => {
     const errors = validate_fields(['requestId'], data, {
       requestId: validationSchemas.objectIdSchema,
@@ -16,7 +44,7 @@ function handle_request(isAccept) {
   };
 }
 
-function private_or_friend_request(isPrivate) {
+function handle_send_private_or_friend_request(isPrivate) {
   return async (data, cb) => {
     const errors = validate_fields(['receiverId'], data, {
       receiverId: validationSchemas.objectIdSchema,
@@ -35,55 +63,20 @@ function private_or_friend_request(isPrivate) {
   };
 }
 
-export default function (socket) {
-  socket.on(
-    'request:sendPrivate',
-    private_or_friend_request(true /* sending a private request */)
-  );
-
-  socket.on(
-    'request:sendFriend',
-    private_or_friend_request(false /* sending a friend request */)
-  );
-
-  socket.on('request:sendGroup', async (data, cb) => {
-    const errors = validate_fields(['receiverId', 'chatId'], data, {
-      chatId: validationSchemas.objectIdSchema,
-      receiverId: validationSchemas.objectIdSchema,
-    });
+function handle_send_group_or_join_request(isGroup) {
+  return async (data, cb) => {
+    const errors = validate_fields(
+      ['chatId', isGroup ? 'receiverId' : null],
+      data,
+      {
+        chatId: validationSchemas.objectIdSchema,
+      }
+    );
 
     if (Object.keys(errors).length !== 0) {
       return cb({ success: false, errors });
     }
 
-    await requestHandlers.send_group_or_join_request(
-      socket,
-      data,
-      cb,
-      true /* to indicate it's a group request */
-    );
-  });
-
-  socket.on('request:sendJoin', async (data, cb) => {
-    const errors = validate_fields(['chatId'], data, {
-      chatId: validationSchemas.objectIdSchema,
-    });
-
-    if (Object.keys(errors).length !== 0) {
-      return cb({ success: false, errors });
-    }
-    await requestHandlers.send_group_or_join_request(
-      socket,
-      data,
-      cb,
-      false /* to indicate it's a join request */
-    );
-  });
-
-  socket.on('request:accept', handle_request(true /* to accept the request */));
-
-  socket.on(
-    'request:decline',
-    handle_request(false /* to decline the request */)
-  );
+    await requestHandlers.send_group_or_join_request(socket, data, cb, isGroup);
+  };
 }

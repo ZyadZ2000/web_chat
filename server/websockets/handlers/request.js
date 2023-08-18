@@ -1,4 +1,7 @@
+// NPM Packages
 import mongoose from 'mongoose';
+
+// Custom Modules
 import Request, {
   GroupChatRequest,
   JoinGroupRequest,
@@ -41,16 +44,16 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
     await session.commitTransaction();
     session.endSession();
 
+    cb({ success: true, ...result.cbData });
+
     if (request.type === 'joinRequest') {
-      cb({ success: true });
       global.io
-        .to(result.sender._id)
+        .to(result.requestSender._id)
         .emit(isAccept ? 'request:accept' : 'result:decline', {
-          ...result.dataToSender,
+          ...result.dataToRequestSender,
         });
-    } else {
-      cb({ success: true, ...result.cbData });
     }
+
     if (request.to)
       return global.io.to(result.to).emit(result.event, {
         ...result.eventData,
@@ -105,6 +108,7 @@ export async function send_private_or_friend_request(
         bio: socket.user.bio,
         profilePhoto: socket.user.profilePhoto,
         onlineStatus: socket.user.onlineStatus,
+        createdAt: socket.user.createdAt,
       },
     });
   } catch (error) {
@@ -230,7 +234,7 @@ async function private_and_friend_request(user, request, session, isAccept) {
   let result = { type: request.type, cbData: {}, eventData: {} };
 
   const sender = await User.findById(request.sender).select(
-    '_id username bio profilePhoto onlineStatus'
+    '_id username bio profilePhoto onlineStatus createdAt'
   );
 
   if (!sender) throw new Error('Sender not found');
@@ -264,7 +268,7 @@ async function private_and_friend_request(user, request, session, isAccept) {
       await sender.save().session(session);
     }
   } else {
-    result.event = 'request.decline';
+    result.event = 'request:decline';
   }
 
   result.eventData.by = {
@@ -273,6 +277,7 @@ async function private_and_friend_request(user, request, session, isAccept) {
     bio: user.bio,
     profilePhoto: user.profilePhoto,
     onlineStatus: user.onlineStatus,
+    createdAt: user.createdAt,
   };
 
   await request.deleteOne().session(session);
@@ -292,6 +297,7 @@ async function group_request(user, request, session, isAccept) {
   let result = { type: request.type, cbData: {}, eventData: {} };
 
   if (isAccept) {
+    result.to = chat._id;
     result.event = 'chat:join';
     user.chats.push(chat._id);
     chat.members.push(user._id);
@@ -306,6 +312,7 @@ async function group_request(user, request, session, isAccept) {
       bio: user.bio,
       profilePhoto: user.profilePhoto,
       onlineStatus: user.onlineStatus,
+      createdAt: user.createdAt,
     };
   }
 
@@ -352,17 +359,17 @@ async function join_request(user, request, session, isAccept) {
 
   if (!chat.isAuthorized) throw new Error('Not authorized');
 
-  const sender = await User.findById(request.receiver).select(
-    '_id username bio profilePhoto onlineStatus'
+  const sender = await User.findById(request.sender).select(
+    '_id username bio profilePhoto onlineStatus createdAt'
   );
 
   let result = {
     type: request.type,
     cbData: {},
     eventData: {},
-    dataToSender: {},
+    dataToRequestSender: {},
   };
-  result.sender = sender;
+  result.requestSender = sender;
 
   if (isAccept) {
     result.to = chat._id;
@@ -373,7 +380,7 @@ async function join_request(user, request, session, isAccept) {
     await acceptedUser.save().session(session);
     await chat.save().session(session);
 
-    result.dataToSender.chat = chat;
+    result.dataToRequestSender.chat = chat;
     result.eventData.user = sender;
   }
   await request.deleteOne().session(session);

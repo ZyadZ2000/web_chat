@@ -8,7 +8,7 @@ const messageSchema = new mongoose.Schema(
     sender: { type: ObjectId, required: true, ref: 'User' },
     type: {
       type: String,
-      enum: ['text', 'media'],
+      enum: ['text', 'file'],
       required: true,
     },
   },
