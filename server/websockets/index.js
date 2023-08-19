@@ -47,11 +47,11 @@ function io_init(server) {
 
   global.io.on('connection', (socket) => {
     //socket joins a room with the same id as the user id
-    socket.join(socket.user._id);
+    socket.join(socket.user.id);
 
     // Join the user to all of his chats
     socket.user.chats.forEach((chat) => {
-      socket.join(chat);
+      socket.join(chat.toString());
     });
 
     socket.use(async (_, next) => {
@@ -81,14 +81,13 @@ function io_init(server) {
     socket.on('disconnect', async () => {
       if (socket.user) {
         // Set the user to be offline
-        socket.user.onlineStatus = false;
-        await socket.user.save();
+        await socket.user.updateOne({ onlineStatus: false });
 
         //inform all connected sockets of user disconnection
-        global.io.emit('user:disonnected', socket.user._id);
+        global.io.emit('user:disonnected', socket.user.username);
       }
 
-      console.log(`${socket.user?._id || 'socket'} disconnected`);
+      console.log(`${socket.id || 'socket'} disconnected`);
     });
   });
 }

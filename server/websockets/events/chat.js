@@ -1,9 +1,20 @@
 // Custom Modules
 import * as chatHandlers from '../handlers/chat.js';
 import validate_fields from '../../utils/validation.js';
-import validationSchemas from '../../config/joi.js';
+import * as validationSchemas from '../../config/joi.js';
 
 export default function (socket) {
+  socket.on('chat:join', async (data, cb) => {
+    const errors = validate_fields(['chatId'], data, {
+      chatId: validationSchemas.objectIdSchema,
+    });
+
+    if (Object.keys(errors).length === 0)
+      return cb({ success: false, error: errors });
+
+    await chatHandlers.join_chat(socket, data, cb);
+  });
+
   socket.on('chat:sendMessage', async (data, cb) => {
     // In the case of a file it will be saved in the handler.
     const errors = validate_fields(

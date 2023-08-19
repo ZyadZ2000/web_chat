@@ -48,7 +48,7 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
 
     if (request.type === 'joinRequest') {
       global.io
-        .to(result.requestSender._id)
+        .to(result.requestSender.id)
         .emit(isAccept ? 'request:accept' : 'result:decline', {
           ...result.dataToRequestSender,
         });
@@ -99,11 +99,11 @@ export async function send_private_or_friend_request(
 
     cb({ success: true });
 
-    return global.io.to(receiver._id).emit('request:receive', {
+    return global.io.to(receiver.id).emit('request:receive', {
       type: request.type,
-      requestId: request._id,
+      requestId: request.id,
       by: {
-        _id: socket.user._id,
+        _id: socket.user.id,
         username: socket.user.username,
         bio: socket.user.bio,
         profilePhoto: socket.user.profilePhoto,
@@ -208,14 +208,14 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
     cb({ success: true });
 
     return global.io
-      .to(isGroupReq ? receiver._id : chat._id)
+      .to(isGroupReq ? receiver.id : chat.id)
       .emit('request:receive', {
         type: request.type,
-        requestId: request._id,
+        requestId: request.id,
         chat: isGroupReq ? chat : null,
         sender: isGroupReq
           ? {
-              _id: socket.user._id,
+              _id: socket.user.id,
               username: socket.user.username,
               bio: socket.user.bio,
               profilePhoto: socket.user.profilePhoto,
@@ -239,7 +239,7 @@ async function private_and_friend_request(user, request, session, isAccept) {
 
   if (!sender) throw new Error('Sender not found');
 
-  result.to = sender._id;
+  result.to = sender.id;
 
   let chat;
   if (isAccept) {
@@ -272,7 +272,7 @@ async function private_and_friend_request(user, request, session, isAccept) {
   }
 
   result.eventData.by = {
-    _id: user._id,
+    _id: user.id,
     username: user.username,
     bio: user.bio,
     profilePhoto: user.profilePhoto,
@@ -285,6 +285,9 @@ async function private_and_friend_request(user, request, session, isAccept) {
   return result;
 }
 
+/**
+ * In both those functions, don't forget to join the user to the chat room.
+ */
 async function group_request(user, request, session, isAccept) {
   if (request.receiver !== user._id) throw new Error('Not authorized');
 
@@ -297,7 +300,7 @@ async function group_request(user, request, session, isAccept) {
   let result = { type: request.type, cbData: {}, eventData: {} };
 
   if (isAccept) {
-    result.to = chat._id;
+    result.to = chat.id;
     result.event = 'chat:join';
     user.chats.push(chat._id);
     chat.members.push(user._id);
@@ -307,7 +310,7 @@ async function group_request(user, request, session, isAccept) {
 
     result.cbData.chat = chat;
     result.eventData.user = {
-      _id: user._id,
+      _id: user.id,
       username: user.username,
       bio: user.bio,
       profilePhoto: user.profilePhoto,
@@ -372,7 +375,7 @@ async function join_request(user, request, session, isAccept) {
   result.requestSender = sender;
 
   if (isAccept) {
-    result.to = chat._id;
+    result.to = chat.id;
     result.event = 'chat:join';
     acceptedUser.chats.push(chat._id);
     chat.members.push(sender._id);

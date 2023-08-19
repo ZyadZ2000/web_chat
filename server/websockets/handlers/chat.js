@@ -15,6 +15,25 @@ import User from '../../models/user.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+async function join_chat(socket, data, cb) {
+  try {
+    const { chatId } = data;
+
+    const chat = await Chat.findOne({
+      _id: chatId,
+      members: socket.user._id,
+    }).select('_id');
+
+    if (!chat) throw new Error('Not authorized');
+
+    socket.join(chat.id);
+
+    return cb({ success: true });
+  } catch (error) {
+    return cb({ success: false, error });
+  }
+}
+
 export async function send_message(socket, data, cb) {
   try {
     const { messageContent, messageType, chatId, file } = data;
@@ -261,6 +280,8 @@ export async function remove_member(socket, data, cb) {
 
     cb({ success: true });
 
+    /* Disconnect the socket of the member from the chat._id */
+
     return global.io.to(chat._id).emit('chat:removeMember', {
       member: { _id: member._id, username: member.username },
     });
@@ -327,6 +348,8 @@ export async function leave_chat(socket, data, cb) {
     session.endSession();
 
     cb({ success: true });
+
+    /* Disconnect the socket of the member from the chat._id */
 
     return global.io.to(chat._id).emit('chat:leave', {
       member: { _id: socket.user._id, username: socket.user.username },

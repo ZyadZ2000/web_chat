@@ -1,7 +1,7 @@
 // Custom Modules
 import * as userHandlers from '../handlers/user.js';
 import validate_fields from '../../utils/validation.js';
-import validationSchemas from '../../config/joi.js';
+import * as validationSchemas from '../../config/joi.js';
 
 export default function (socket) {
   socket.on('user:removeFriend', async (data, cb) => {

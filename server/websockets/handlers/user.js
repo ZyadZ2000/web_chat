@@ -37,9 +37,9 @@ export async function remove_friend(socket, data, cb) {
     cb({ success: true });
 
     // Emit an event to the removed friend notifying about the removal
-    return global.io.to(friend._id).emit('user:removeFriend', {
+    return global.io.to(friend.id).emit('user:removeFriend', {
       by: {
-        _id: socket.user._id,
+        _id: socket.user.id,
         username: socket.user.username,
         bio: socket.user.bio,
         profilePhoto: socket.user.profilePhoto,
@@ -84,7 +84,7 @@ export async function delete_user(socket, data, cb) {
     cb({ success: true });
 
     global.io.emit('user:delete', {
-      _id: socket.user._id,
+      _id: socket.user.id,
     });
 
     return socket.disconnect();

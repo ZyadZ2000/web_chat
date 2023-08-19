@@ -1,7 +1,7 @@
 // Custom Modules
 import * as requestHandlers from '../handlers/request.js';
 import validate_fields from '../../utils/validation.js';
-import validationSchemas from '../../config/joi.js';
+import * as validationSchemas from '../../config/joi.js';
 
 export default function (socket) {
   socket.on(
@@ -27,56 +27,66 @@ export default function (socket) {
     'request:decline',
     handle_accept_or_decline_request(false /* to decline the request */)
   );
-}
 
-// Private Functions
-function handle_accept_or_decline_request(isAccept) {
-  return async (data, cb) => {
-    const errors = validate_fields(['requestId'], data, {
-      requestId: validationSchemas.objectIdSchema,
-    });
+  // Private Functions
+  function handle_accept_or_decline_request(isAccept) {
+    return async (data, cb) => {
+      const errors = validate_fields(['requestId'], data, {
+        requestId: validationSchemas.objectIdSchema,
+      });
 
-    if (Object.keys(errors).length !== 0) {
-      return cb({ success: false, error: errors });
-    }
-
-    await requestHandlers.accept_or_decline_request(socket, data, cb, isAccept);
-  };
-}
-
-function handle_send_private_or_friend_request(isPrivate) {
-  return async (data, cb) => {
-    const errors = validate_fields(['receiverId'], data, {
-      receiverId: validationSchemas.objectIdSchema,
-    });
-
-    if (Object.keys(errors).length !== 0) {
-      return cb({ success: false, errors });
-    }
-
-    await requestHandlers.send_private_or_friend_request(
-      socket,
-      data,
-      cb,
-      isPrivate
-    );
-  };
-}
-
-function handle_send_group_or_join_request(isGroup) {
-  return async (data, cb) => {
-    const errors = validate_fields(
-      ['chatId', isGroup ? 'receiverId' : null],
-      data,
-      {
-        chatId: validationSchemas.objectIdSchema,
+      if (Object.keys(errors).length !== 0) {
+        return cb({ success: false, error: errors });
       }
-    );
 
-    if (Object.keys(errors).length !== 0) {
-      return cb({ success: false, errors });
-    }
+      await requestHandlers.accept_or_decline_request(
+        socket,
+        data,
+        cb,
+        isAccept
+      );
+    };
+  }
 
-    await requestHandlers.send_group_or_join_request(socket, data, cb, isGroup);
-  };
+  function handle_send_private_or_friend_request(isPrivate) {
+    return async (data, cb) => {
+      const errors = validate_fields(['receiverId'], data, {
+        receiverId: validationSchemas.objectIdSchema,
+      });
+
+      if (Object.keys(errors).length !== 0) {
+        return cb({ success: false, errors });
+      }
+
+      await requestHandlers.send_private_or_friend_request(
+        socket,
+        data,
+        cb,
+        isPrivate
+      );
+    };
+  }
+
+  function handle_send_group_or_join_request(isGroup) {
+    return async (data, cb) => {
+      const errors = validate_fields(
+        ['chatId', isGroup ? 'receiverId' : null],
+        data,
+        {
+          chatId: validationSchemas.objectIdSchema,
+        }
+      );
+
+      if (Object.keys(errors).length !== 0) {
+        return cb({ success: false, errors });
+      }
+
+      await requestHandlers.send_group_or_join_request(
+        socket,
+        data,
+        cb,
+        isGroup
+      );
+    };
+  }
 }
