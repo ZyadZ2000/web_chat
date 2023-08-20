@@ -9,35 +9,17 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 
 // Custom Modules
-import Chat from '../../models/chat.js';
+import Chat, { GroupChat } from '../../models/chat.js';
 import User from '../../models/user.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function join_chat(socket, data, cb) {
+export async function join_chat(socket, data, cb) {
   try {
     const { chatId } = data;
 
-    const chat = await Chat.findOne({
-      _id: chatId,
-      members: socket.user._id,
-    }).select('_id');
-
-    if (!chat) throw new Error('Not authorized');
-
-    socket.join(chat.id);
-
-    return cb({ success: true });
-  } catch (error) {
-    return cb({ success: false, error });
-  }
-}
-
-export async function send_message(socket, data, cb) {
-  try {
-    const { messageContent, messageType, chatId, file } = data;
-    const chat = await Chat.aggregate([
+    let chat = await Chat.aggregate([
       {
         $match: { _id: chatId },
       },
@@ -60,7 +42,47 @@ export async function send_message(socket, data, cb) {
       },
     ]);
 
+    chat = chat[0];
+
     if (!chat) throw new Error('Chat not found');
+    if (!chat.isMember) throw new Error('Not authorized');
+
+    socket.join(chat._id.toString());
+
+    return cb({ success: true });
+  } catch (error) {
+    return cb({ success: false, error: error.message });
+  }
+}
+
+export async function send_message(socket, data, cb) {
+  try {
+    const { messageContent, messageType, file } = data;
+    const chatId = new mongoose.Types.ObjectId(data.chatId);
+
+    let chat = await Chat.aggregate([
+      {
+        $match: { _id: chatId },
+      },
+      {
+        $project: {
+          _id: 1,
+          type: 1,
+          isMember: {
+            $cond: {
+              if: { $eq: ['$type', 'groupChat'] }, // Check if the chat type is 'groupChat'
+              then: { $in: [socket.user._id, '$members'] }, // Check if userId is in members array
+              else: { $in: [socket.user._id, '$users'] }, // Check if userId is in users array for 'privateChat'
+            },
+          },
+        },
+      },
+    ]);
+
+    chat = chat[0];
+
+    if (!chat) throw new Error('Chat not found');
+
     if (!chat.isMember) throw new Error('Not authorized');
 
     switch (messageType) {
@@ -90,21 +112,25 @@ export async function send_message(socket, data, cb) {
 
         const writeStream = fs.createWriteStream(filePath);
 
-        writeStream.on('finish', async () => {
+        writeStream.on('finish', async (err) => {
+          if (err) return cb({ success: false, error: err.message });
           const message = {
             type: 'file',
             sender: socket.user._id,
             content: fileName,
           };
-          await chat.updateOne({
-            $push: {
-              messages: message,
-            },
-          });
+          await Chat.updateOne(
+            { _id: chat._id },
+            {
+              $push: {
+                messages: message,
+              },
+            }
+          );
 
           cb({ success: true, message });
 
-          return global.io.to(chat._id).emit('chat:sendMessage', {
+          return global.io.to(chat._id.toString()).emit('chat:sendMessage', {
             message: message,
             by: {
               _id: socket.user._id,
@@ -113,7 +139,7 @@ export async function send_message(socket, data, cb) {
           });
         });
 
-        writeStream.write(data.buffer);
+        writeStream.write(data.file);
         writeStream.end();
         break;
       case 'text':
@@ -125,7 +151,17 @@ export async function send_message(socket, data, cb) {
           sender: socket.user._id,
           content: messageContent,
         };
-        return global.io.to(chat._id).emit('chat:sendMessage', {
+
+        await Chat.updateOne(
+          { _id: chat._id },
+          {
+            $push: {
+              messages: message,
+            },
+          }
+        );
+
+        return global.io.to(chat._id.toString()).emit('chat:sendMessage', {
           message: message,
           by: {
             _id: socket.user._id,
@@ -133,21 +169,26 @@ export async function send_message(socket, data, cb) {
           },
         });
         break;
+      default:
+        throw new Error(
+          "Invalid message type, a message could be of type 'file' or 'text' only"
+        );
     }
   } catch (error) {
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }
 
 export async function add_or_remove_admin(socket, data, cb, isAdd) {
   try {
-    const { chatId, adminId } = data;
+    const { adminId } = data;
+    const chatId = new mongoose.Types.ObjectId(data.chatId);
 
     const admin = await User.findById(adminId).select('_id');
 
     if (!admin) throw new Error('User not found');
 
-    const chat = await Chat.aggregate([
+    let chat = await GroupChat.aggregate([
       {
         $match: { _id: chatId },
       },
@@ -171,7 +212,16 @@ export async function add_or_remove_admin(socket, data, cb, isAdd) {
           },
         },
       },
+      {
+        $project: {
+          _id: 1,
+          isAdmin: 1,
+          isCreator: 1,
+        },
+      },
     ]);
+
+    chat = chat[0];
 
     if (!chat) throw new Error('Chat not found');
     if (!chat.isCreator) throw new Error('Not authorized');
@@ -179,34 +229,43 @@ export async function add_or_remove_admin(socket, data, cb, isAdd) {
     if (chat.isAdmin && isAdd) throw new Error('User is already an admin');
 
     if (isAdd) {
-      chat.updateOne({ $push: { admins: admin._id } });
+      await GroupChat.updateOne(
+        { _id: chat._id },
+        { $push: { admins: admin._id } }
+      );
     } else {
-      chat.updateOne({ $pull: { admins: admin._id } });
+      await GroupChat.updateOne(
+        { _id: chat._id },
+        { $pull: { admins: admin._id } }
+      );
     }
 
     cb({ success: true });
 
     return global.io
-      .to(chat._id)
+      .to(chat._id.toString())
       .emit(isAdd ? 'chat:addAdmin' : 'chat:removeAdmin', {
         admin: { _id: admin._id, username: admin.username },
       });
   } catch (error) {
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }
 
 export async function remove_member(socket, data, cb) {
   const session = await mongoose.startSession();
-  session.abortTransaction();
+  session.startTransaction();
   try {
-    const { chatId, memberId } = data;
+    const { memberId } = data;
+    const chatId = new mongoose.Types.ObjectId(data.chatId);
 
-    const member = await User.findById(memberId).select('_id chats');
+    const member = await User.findById(memberId).select('_id');
 
     if (!member) throw new Error('User not found');
+    if (socket.user.id === member._id)
+      throw new Error('Cannot remove yourself');
 
-    const chat = await Chat.aggregate([
+    let chat = await GroupChat.aggregate([
       {
         $match: { _id: chatId },
       },
@@ -245,6 +304,7 @@ export async function remove_member(socket, data, cb) {
       {
         $project: {
           _id: 1,
+          name: 1,
           creator: 1,
           isRequestorCreator: 1,
           isRequestorAdmin: 1,
@@ -254,26 +314,37 @@ export async function remove_member(socket, data, cb) {
       },
     ]);
 
-    if (member._id === chat.creator) throw new Error('Cannot remove creator');
+    chat = chat[0];
+
     if (!chat) throw new Error('Chat not found');
+
+    if (member._id.toString() === chat.creator.toString())
+      throw new Error('Cannot remove creator');
+
     if (!chat.isRequestorCreator && !chat.isRequestorAdmin)
       throw new Error('Not authorized');
+
     if (!chat.isOtherUserMember) throw new Error('User is not a member');
 
     if (chat.isRequestorAdmin && chat.isOtherUserAdmin)
-      throw new Error('Only the creator can remove admins');
+      throw new Error('Not authorized');
 
     if (chat.isOtherUserAdmin) {
-      chat
-        .updateOne({
-          $pull: { members: member._id },
-          $pull: { admins: member._id },
-        })
-        .session(session);
+      await GroupChat.updateOne(
+        { _id: chat._id },
+        { $pull: { admins: member._id, members: member._id } }
+      ).session(session);
     } else {
-      chat.updateOne({ $pull: { members: member._id } }).session(session);
+      await GroupChat.updateOne(
+        { _id: chat._id },
+        { $pull: { members: member._id } }
+      ).session(session);
     }
-    member.updateOne({ $pull: { chats: chat._id } }).session(session);
+
+    await User.updateOne(
+      { _id: member._id },
+      { $pull: { chats: chat._id } }
+    ).session(session);
 
     await session.commitTransaction();
     session.endSession();
@@ -281,23 +352,29 @@ export async function remove_member(socket, data, cb) {
     cb({ success: true });
 
     /* Disconnect the socket of the member from the chat._id */
+    global.io.in(member.id).socketsLeave(chat._id.toString());
+    /* Inform the removed user */
+    global.io.to(member.id).emit('chat:removeMember', {
+      chat: { _id: chat._id, name: chat.name },
+    });
 
-    return global.io.to(chat._id).emit('chat:removeMember', {
+    return global.io.to(chat._id.toString()).emit('chat:removeMember', {
       member: { _id: member._id, username: member.username },
     });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }
 
 export async function leave_chat(socket, data, cb) {
   const session = await mongoose.startSession();
-  session.abortTransaction();
+  session.startTransaction();
   try {
-    const { chatId } = data;
-    const chat = await Chat.aggregate([
+    const chatId = new mongoose.Types.ObjectId(data.chatId);
+
+    let chat = await GroupChat.aggregate([
       {
         $match: { _id: chatId },
       },
@@ -328,21 +405,31 @@ export async function leave_chat(socket, data, cb) {
       },
     ]);
 
+    chat = chat[0];
+
     if (!chat) throw new Error('Chat not found');
     if (!chat.isMember) throw new Error('Already not a member');
 
     if (chat.isAdmin) {
-      chat
-        .updateOne({
-          $pull: { members: member._id },
-          $pull: { admins: member._id },
-        })
-        .session(session);
+      await GroupChat.updateOne(
+        { _id: chat._id },
+        {
+          $pull: { members: socket.user._id, admins: socket.user._id },
+        }
+      ).session(session);
     } else {
-      chat.updateOne({ $pull: { members: socket.user._id } }).session(session);
+      await GroupChat.updateOne(
+        { _id: chat._id },
+        {
+          $pull: { members: socket.user._id },
+        }
+      ).session(session);
     }
 
-    socket.user.updateOne({ $pull: { chats: chat._id } }).session(session);
+    await User.updateOne(
+      { _id: socket.user._id },
+      { $pull: { chats: chat._id } }
+    );
 
     await session.commitTransaction();
     session.endSession();
@@ -350,21 +437,24 @@ export async function leave_chat(socket, data, cb) {
     cb({ success: true });
 
     /* Disconnect the socket of the member from the chat._id */
+    socket.leave(chat._id.toString());
 
-    return global.io.to(chat._id).emit('chat:leave', {
+    return global.io.to(chat._id.toString()).emit('chat:leave', {
       member: { _id: socket.user._id, username: socket.user.username },
     });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }
 
 export async function change_name_or_photo(socket, data, cb, isName) {
   try {
-    const { chatId, chatName, file } = data;
-    const chat = await Chat.aggregate([
+    const { chatName, file } = data;
+    const chatId = new mongoose.Types.ObjectId(data.chatId);
+
+    let chat = await GroupChat.aggregate([
       {
         $match: { _id: chatId },
       },
@@ -387,13 +477,17 @@ export async function change_name_or_photo(socket, data, cb, isName) {
       },
     ]);
 
+    chat = chat[0];
+
     if (!chat) throw new Error('Chat not found');
     if (!chat.isCreator) throw new Error('Not authorized');
 
     if (isName) {
-      await chat.updateOne({ $set: { name: chatName } });
+      await Chat.updateOne({ _id: chat._id }, { $set: { name: chatName } });
       cb({ success: true });
-      return global.io.to(chat._id).emit('chat:changeName', { name: chatName });
+      return global.io
+        .to(chat._id.toString())
+        .emit('chat:changeName', { name: chatName });
     } else {
       if (!file) throw new Error('No file provided');
       const fileType = await fileTypeFromBuffer(file);
@@ -412,21 +506,18 @@ export async function change_name_or_photo(socket, data, cb, isName) {
 
       const writeStream = fs.createWriteStream(filePath);
 
-      writeStream.on('finish', async () => {
-        await chat.updateOne({
-          $set: {
-            photo: fileName,
-          },
-        });
+      writeStream.on('finish', async (err) => {
+        if (err) return cb({ success: false, error: err.message });
+        await Chat.updateOne({ _id: chat._id }, { $set: { photo: fileName } });
 
         cb({ success: true });
 
-        return global.io.to(chat._id).emit('chat:changePhoto', {
+        return global.io.to(chat._id.toString()).emit('chat:changePhoto', {
           photo: fileName,
         });
       });
 
-      writeStream.write(data.buffer);
+      writeStream.write(file);
       writeStream.end();
     }
   } catch (error) {

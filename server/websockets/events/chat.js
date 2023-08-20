@@ -9,7 +9,7 @@ export default function (socket) {
       chatId: validationSchemas.objectIdSchema,
     });
 
-    if (Object.keys(errors).length === 0)
+    if (Object.keys(errors).length !== 0)
       return cb({ success: false, error: errors });
 
     await chatHandlers.join_chat(socket, data, cb);
@@ -27,7 +27,7 @@ export default function (socket) {
       }
     );
 
-    if (Object.keys(errors).length === 0)
+    if (Object.keys(errors).length !== 0)
       return cb({ success: false, error: errors });
 
     await chatHandlers.send_message(socket, data, cb);
@@ -43,7 +43,7 @@ export default function (socket) {
       memberId: validationSchemas.objectIdSchema,
     });
 
-    if (Object.keys(errors).length === 0)
+    if (Object.keys(errors).length !== 0)
       return cb({ success: false, error: errors });
 
     await chatHandlers.remove_member(socket, data, cb);
@@ -57,36 +57,36 @@ export default function (socket) {
       chatId: validationSchemas.objectIdSchema,
     });
 
-    if (Object.keys(errors).length === 0)
+    if (Object.keys(errors).length !== 0)
       return cb({ success: false, error: errors });
 
     await chatHandlers.leave_chat(socket, data, cb);
   });
-}
 
-function handle_admin_add_or_remove(isAdd) {
-  return async (data, cb) => {
-    const errors = validate_fields(['chatId', 'adminId'], data, {
-      chatId: validationSchemas.objectIdSchema,
-      adminId: validationSchemas.objectIdSchema,
-    });
+  function handle_admin_add_or_remove(isAdd) {
+    return async (data, cb) => {
+      const errors = validate_fields(['chatId', 'adminId'], data, {
+        chatId: validationSchemas.objectIdSchema,
+        adminId: validationSchemas.objectIdSchema,
+      });
 
-    if (Object.keys(errors).length === 0)
-      return cb({ success: false, error: errors });
+      if (Object.keys(errors).length !== 0)
+        return cb({ success: false, error: errors });
 
-    await chatHandlers.add_or_remove_admin(socket, data, cb, isAdd);
-  };
-}
+      await chatHandlers.add_or_remove_admin(socket, data, cb, isAdd);
+    };
+  }
 
-function handle_change_name_or_photo(isName) {
-  return async (data, cb) => {
-    const errors = validate_fields(['chatId', 'chatName'], data, {
-      chatId: validationSchemas.objectIdSchema,
-      chatName: validationSchemas.nameSchema,
-    });
+  function handle_change_name_or_photo(isName) {
+    return async (data, cb) => {
+      const errors = validate_fields(['chatId', 'chatName'], data, {
+        chatId: validationSchemas.objectIdSchema,
+        chatName: validationSchemas.nameSchema,
+      });
 
-    if (Object.keys(errors).length === 0)
-      return cb({ success: false, error: errors });
-    await chatHandlers.change_name_or_photo(socket, data, cb, isName);
-  };
+      if (Object.keys(errors).length === 0)
+        return cb({ success: false, error: errors });
+      await chatHandlers.change_name_or_photo(socket, data, cb, isName);
+    };
+  }
 }
