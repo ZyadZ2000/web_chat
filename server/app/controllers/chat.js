@@ -25,7 +25,7 @@ export async function create_chat(req, res, next) {
       { $push: { chats: chat._id } }
     ).session(session);
 
-    await chat.save().session(session);
+    await chat.save();
 
     await session.commitTransaction();
     session.endSession();

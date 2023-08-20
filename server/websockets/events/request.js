@@ -69,13 +69,14 @@ export default function (socket) {
 
   function handle_send_group_or_join_request(isGroup) {
     return async (data, cb) => {
-      const errors = validate_fields(
-        ['chatId', isGroup ? 'receiverId' : null],
-        data,
-        {
-          chatId: validationSchemas.objectIdSchema,
-        }
-      );
+      const errors = isGroup
+        ? validate_fields(['chatId', 'receiverId'], data, {
+            chatId: validationSchemas.objectIdSchema,
+            receiverId: validationSchemas.objectIdSchema,
+          })
+        : validate_fields(['chatId'], data, {
+            chatId: validationSchemas.objectIdSchema,
+          });
 
       if (Object.keys(errors).length !== 0) {
         return cb({ success: false, errors });

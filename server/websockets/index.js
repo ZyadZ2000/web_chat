@@ -54,6 +54,11 @@ function io_init(server) {
       socket.join(chat.toString());
     });
 
+    console.log('Hello, maybe again');
+
+    // Delete the chats array from the user in memory
+    delete socket.user.chats;
+
     socket.use(async (_, next) => {
       try {
         const token = socket.handshake.auth.token;

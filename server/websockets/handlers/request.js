@@ -8,7 +8,7 @@ import Request, {
   PrivateRequest,
 } from '../../models/request.js';
 import User from '../../models/user.js';
-import { GroupChat, PrivateChat } from '../../models/chat.js';
+import Chat, { GroupChat, PrivateChat } from '../../models/chat.js';
 
 export async function accept_or_decline_request(socket, data, cb, isAccept) {
   const session = await mongoose.startSession();
@@ -24,7 +24,7 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
     switch (request.type) {
       case 'privateRequest':
       case 'friendRequest':
-        result = private_and_friend_request(
+        result = await private_and_friend_request(
           socket.user,
           request,
           session,
@@ -32,10 +32,10 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
         );
         break;
       case 'groupRequest':
-        result = group_request(socket.user, request, session, isAccept);
+        result = await group_request(socket.user, request, session, isAccept);
         break;
       case 'joinRequest':
-        result = join_request(socket.user, request, session, isAccept);
+        result = await join_request(socket.user, request, session, isAccept);
         break;
       default:
         throw new Error('Invalid request type');
@@ -54,14 +54,15 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
         });
     }
 
-    if (request.to)
+    if (result.to) {
       return global.io.to(result.to).emit(result.event, {
         ...result.eventData,
       });
+    }
   } catch (error) {
-    session.abortTransaction();
+    await session.abortTransaction();
     session.endSession();
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }
 
@@ -72,8 +73,33 @@ export async function send_private_or_friend_request(
   isPrivate
 ) {
   try {
-    const { receiverId } = data;
-    const receiver = await User.findById(receiverId).select('_id');
+    const receiverId = new mongoose.Types.ObjectId(data.receiverId);
+
+    let receiver = await User.aggregate([
+      {
+        $match: { _id: receiverId },
+      },
+      {
+        $addFields: {
+          isAlreadyFriend: {
+            $cond: {
+              if: { $in: [socket.user._id, '$friends'] },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          isAlreadyFriend: 1,
+        },
+      },
+    ]);
+
+    receiver = receiver[0];
+
     if (!receiver) throw new Error('Receiver not found');
 
     if (isPrivate) {
@@ -84,12 +110,10 @@ export async function send_private_or_friend_request(
       if (chat)
         throw new Error('A private chat with the receiver already exists');
     } else {
-      const isFriend = socket.user.friends.includes(receiver._id);
-      if (isFriend) throw new Error('You are already friends');
+      if (receiver.isAlreadyFriend) throw new Error('You are already friends');
     }
 
-    let request;
-    request = new Request({
+    const request = new Request({
       type: isPrivate ? 'privateRequest' : 'friendRequest',
       sender: socket.user._id,
       receiver: receiver._id,
@@ -99,7 +123,7 @@ export async function send_private_or_friend_request(
 
     cb({ success: true });
 
-    return global.io.to(receiver.id).emit('request:receive', {
+    return global.io.to(receiver._id.toString()).emit('request:receive', {
       type: request.type,
       requestId: request.id,
       by: {
@@ -112,7 +136,7 @@ export async function send_private_or_friend_request(
       },
     });
   } catch (error) {
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }
 
@@ -121,7 +145,7 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
     let receiverId;
     let receiver;
 
-    const chatId = data.chatId;
+    const chatId = new mongoose.Types.ObjectId(data.chatId);
 
     if (isGroupReq) {
       receiverId = data.receiverId;
@@ -130,7 +154,7 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
 
       if (!receiver) throw new Error('Receiver not found');
     }
-    const chat = await GroupChat.aggregate([
+    let chat = await Chat.aggregate([
       {
         $match: { _id: chatId },
       },
@@ -187,6 +211,8 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
       },
     ]);
 
+    chat = chat[0];
+
     if (!chat) throw new Error('Chat not found');
 
     if (isGroupReq && !chat.isAuthorized) throw new Error('Not authorized');
@@ -208,28 +234,29 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
     cb({ success: true });
 
     return global.io
-      .to(isGroupReq ? receiver.id : chat.id)
+      .to(isGroupReq ? receiver.id : chat._id.toString())
       .emit('request:receive', {
         type: request.type,
         requestId: request.id,
         chat: isGroupReq ? chat : null,
-        sender: isGroupReq
-          ? {
+        by: isGroupReq
+          ? null
+          : {
               _id: socket.user.id,
               username: socket.user.username,
               bio: socket.user.bio,
               profilePhoto: socket.user.profilePhoto,
               onlineStatus: socket.user.onlineStatus,
-            }
-          : null,
+            },
       });
   } catch (error) {
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }
 
 async function private_and_friend_request(user, request, session, isAccept) {
-  if (request.receiver !== user._id) throw new Error('Not authorized');
+  if (request.receiver.toString() !== user.id)
+    throw new Error('Not authorized');
 
   let result = { type: request.type, cbData: {}, eventData: {} };
 
@@ -251,21 +278,29 @@ async function private_and_friend_request(user, request, session, isAccept) {
         users: [user._id, sender._id],
       });
 
-      user.chats.push(chat._id);
-      sender.chats.push(chat._id);
+      await chat.save({ session });
 
-      await chat.save().session(session);
-      await user.save().session(session);
-      await sender.save().session(session);
+      await User.updateOne(
+        { _id: user._id },
+        { $push: { chats: chat._id } }
+      ).session(session);
+
+      await User.updateOne(
+        { _id: sender._id },
+        { $push: { chats: chat._id } }
+      ).session(session);
 
       result.cbData.chat = chat;
       result.eventData.chat = chat;
     } else if (request.type === 'friendRequest') {
-      user.friends.push(sender._id);
-      sender.friends.push(user._id);
-
-      await user.save().session(session);
-      await sender.save().session(session);
+      await User.updateOne(
+        { _id: user._id },
+        { $push: { friends: sender._id } }
+      ).session(session);
+      await User.updateOne(
+        { _id: sender._id },
+        { $push: { friends: user._id } }
+      ).session(session);
     }
   } else {
     result.event = 'request:decline';
@@ -280,19 +315,17 @@ async function private_and_friend_request(user, request, session, isAccept) {
     createdAt: user.createdAt,
   };
 
-  await request.deleteOne().session(session);
+  await Request.deleteOne({ _id: request._id }).session(session);
 
   return result;
 }
 
-/**
- * In both those functions, don't forget to join the user to the chat room.
- */
 async function group_request(user, request, session, isAccept) {
-  if (request.receiver !== user._id) throw new Error('Not authorized');
+  if (request.receiver.toString() !== user.id)
+    throw new Error('Not authorized');
 
   const chat = await GroupChat.findById(request.chat).select(
-    'name photo description creator createdAt'
+    '_id name photo description creator createdAt'
   );
 
   if (!chat) throw new Error('Chat not found');
@@ -300,13 +333,17 @@ async function group_request(user, request, session, isAccept) {
   let result = { type: request.type, cbData: {}, eventData: {} };
 
   if (isAccept) {
-    result.to = chat.id;
+    result.to = chat._id.toString();
     result.event = 'chat:join';
-    user.chats.push(chat._id);
-    chat.members.push(user._id);
 
-    await user.save().session(session);
-    await chat.save().session(session);
+    await User.updateOne(
+      { _id: user._id },
+      { $push: { chats: chat._id } }
+    ).session(session);
+    await GroupChat.updateOne(
+      { _id: chat._id },
+      { $push: { members: user._id } }
+    ).session(session);
 
     result.cbData.chat = chat;
     result.eventData.user = {
@@ -319,13 +356,13 @@ async function group_request(user, request, session, isAccept) {
     };
   }
 
-  await request.deleteOne().session(session);
+  await Request.deleteOne({ _id: request._id }).session(session);
 
   return result;
 }
 
 async function join_request(user, request, session, isAccept) {
-  const chat = await GroupChat.aggregate([
+  let chat = await Chat.aggregate([
     {
       $match: { _id: request.chat },
     },
@@ -358,6 +395,8 @@ async function join_request(user, request, session, isAccept) {
     },
   ]);
 
+  chat = chat[0];
+
   if (!chat) throw new Error('Chat not found');
 
   if (!chat.isAuthorized) throw new Error('Not authorized');
@@ -372,21 +411,31 @@ async function join_request(user, request, session, isAccept) {
     eventData: {},
     dataToRequestSender: {},
   };
+
   result.requestSender = sender;
+  result.dataToRequestSender.type = 'joinRequest';
 
   if (isAccept) {
-    result.to = chat.id;
-    result.event = 'chat:join';
-    acceptedUser.chats.push(chat._id);
-    chat.members.push(sender._id);
+    result.to = chat._id.toString();
 
-    await acceptedUser.save().session(session);
-    await chat.save().session(session);
+    result.event = 'chat:join';
+
+    await User.updateOne(
+      { _id: sender._id },
+      { $push: { chats: chat._id } }
+    ).session(session);
+
+    await GroupChat.updateOne(
+      { _id: chat._id },
+      { $push: { members: sender._id } }
+    ).session(session);
 
     result.dataToRequestSender.chat = chat;
     result.eventData.user = sender;
+  } else {
+    result.dataToRequestSender.chat = chat._id;
   }
-  await request.deleteOne().session(session);
+  await Request.deleteOne({ _id: request._id }).session(session);
 
   return result;
 }
