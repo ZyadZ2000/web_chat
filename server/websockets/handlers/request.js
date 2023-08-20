@@ -258,7 +258,7 @@ async function private_and_friend_request(user, request, session, isAccept) {
   if (request.receiver.toString() !== user.id)
     throw new Error('Not authorized');
 
-  let result = { type: request.type, cbData: {}, eventData: {} };
+  let result = { cbData: {}, eventData: { type: request.type } };
 
   const sender = await User.findById(request.sender).select(
     '_id username bio profilePhoto onlineStatus createdAt'
@@ -330,7 +330,7 @@ async function group_request(user, request, session, isAccept) {
 
   if (!chat) throw new Error('Chat not found');
 
-  let result = { type: request.type, cbData: {}, eventData: {} };
+  let result = { cbData: {}, eventData: {} };
 
   if (isAccept) {
     result.to = chat._id.toString();
@@ -345,6 +345,7 @@ async function group_request(user, request, session, isAccept) {
       { $push: { members: user._id } }
     ).session(session);
 
+    result.cbData.type = request.type;
     result.cbData.chat = chat;
     result.eventData.user = {
       _id: user.id,
@@ -406,7 +407,6 @@ async function join_request(user, request, session, isAccept) {
   );
 
   let result = {
-    type: request.type,
     cbData: {},
     eventData: {},
     dataToRequestSender: {},
