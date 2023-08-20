@@ -154,7 +154,7 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
 
       if (!receiver) throw new Error('Receiver not found');
     }
-    let chat = await Chat.aggregate([
+    let chat = await GroupChat.aggregate([
       {
         $match: { _id: chatId },
       },

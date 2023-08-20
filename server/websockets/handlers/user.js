@@ -7,27 +7,53 @@ import Request from '../../models/request.js';
 import { verify_credentials } from '../../utils/auth.js';
 
 export async function remove_friend(socket, data, cb) {
-  let friend;
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const friendId = new mongoose.Types.ObjectId(data);
+    const friendId = new mongoose.Types.ObjectId(data.friendId);
 
-    // Find the friend by ID and select relevant fields
-    friend = await User.findOne({
-      _id: friendId,
-      friends: socket.user._id /* Check if both users are friends */,
-    }).select('_id username bio profilePhoto onlineStatus createdAt');
+    let friend = await User.aggregate([
+      {
+        $match: { _id: friendId },
+      },
+      {
+        $addFields: {
+          isFriend: {
+            $cond: {
+              if: { $in: [socket.user._id, '$friends'] },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          username: 1,
+          bio: 1,
+          profilePhoto: 1,
+          onlineStatus: 1,
+          createdAt: 1,
+          isFriend: 1,
+        },
+      },
+    ]);
 
-    if (!friend) throw new Error('Friend not found');
+    friend = friend[0];
+
+    if (!friend) throw new Error('User not found');
+    if (!friend.isFriend) throw new Error('User is not your friend');
 
     // Remove friend from both users' friends arrays
-    await socket.user
-      .updateOne({ $pull: { friends: friend._id } })
-      .session(session);
-    await friend
-      .updateOne({ $pull: { friends: socket.user._id } })
-      .session(session);
+    await User.updateOne(
+      { _id: socket.user._id },
+      { $pull: { friends: friend._id } }
+    ).session(session);
+    await User.updateOne(
+      { _id: friend._id },
+      { $pull: { friends: socket.user._id } }
+    ).session(session);
 
     // Commit the transaction and end the session
     await session.commitTransaction();
@@ -37,7 +63,7 @@ export async function remove_friend(socket, data, cb) {
     cb({ success: true });
 
     // Emit an event to the removed friend notifying about the removal
-    return global.io.to(friend.id).emit('user:removeFriend', {
+    return global.io.to(friend._id.toString()).emit('user:removeFriend', {
       by: {
         _id: socket.user.id,
         username: socket.user.username,
@@ -51,12 +77,12 @@ export async function remove_friend(socket, data, cb) {
     // Handle errors by aborting the transaction and ending the session
     await session.abortTransaction();
     session.endSession();
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }
 
 export async function delete_user(socket, data, cb) {
-  const session = mongoose.startSession();
+  const session = await mongoose.startSession();
   session.startTransaction();
   try {
     const { email, password } = data;
@@ -76,7 +102,7 @@ export async function delete_user(socket, data, cb) {
       $or: [{ sender: socket.user._id }, { receiver: socket.user._id }],
     }).session(session);
 
-    await socket.user.remove().session(session);
+    await User.deleteOne({ _id: socket.user._id }).session(session);
 
     await session.commitTransaction();
     session.endSession();
@@ -85,12 +111,13 @@ export async function delete_user(socket, data, cb) {
 
     global.io.emit('user:delete', {
       _id: socket.user.id,
+      username: socket.user.username,
     });
 
     return socket.disconnect();
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }

@@ -52,7 +52,7 @@ export async function signup(req, res, next) {
 
 export function login(req, res, next) {
   const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, {
-    expiresIn: '1h',
+    expiresIn: '1d',
   });
 
   if (!token) return next(new Error('Could not sign token'));

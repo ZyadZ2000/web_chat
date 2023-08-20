@@ -18,7 +18,7 @@ export default function (socket) {
 
   socket.on('user:delete', async (data, cb) => {
     const errors = validate_fields(['email', 'password'], data, {
-      email: validationSchemas.objectIdSchema,
+      email: validationSchemas.emailSchema,
       password: validationSchemas.passwordSchema,
     });
 
