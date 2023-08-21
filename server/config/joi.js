@@ -6,6 +6,9 @@ const emailSchema = Joi.string().email().required();
 // Name Schema
 const nameSchema = Joi.string().min(3).max(20).required();
 
+// Unrequired Name Schema
+const notRequiredNameSchema = Joi.string().min(3).max(20);
+
 // Schema for paragraphs
 const longStringSchema = Joi.string().min(1).max(256);
 
@@ -37,4 +40,5 @@ export {
   longStringSchema,
   messageContentSchema,
   messageTypeSchema,
+  notRequiredNameSchema,
 };

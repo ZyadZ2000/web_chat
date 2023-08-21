@@ -40,7 +40,7 @@ router.get(
   validate_data(
     ['username'],
     {
-      username: validationSchemas.nameSchema,
+      username: validationSchemas.notRequiredNameSchema,
     },
     'query'
   ),

@@ -127,21 +127,26 @@ export async function get_sent_requests(req, res, next) {
 export async function search_users(req, res, next) {
   try {
     const { username } = req.query;
+    let users;
+    if (username) {
+      const exactMatchRegex = new RegExp(`^${username}$`, 'i'); // Exact match
+      const startsWithRegex = new RegExp(`^${username}`, 'i'); // Start with
+      const endsWithRegex = new RegExp(`${username}$`, 'i'); // End with
+      const containsRegex = new RegExp(username, 'i'); // Contains
 
-    const exactMatchRegex = new RegExp(`^${username}$`, 'i'); // Exact match
-    const startsWithRegex = new RegExp(`^${username}`, 'i'); // Start with
-    const endsWithRegex = new RegExp(`${username}$`, 'i'); // End with
-    const containsRegex = new RegExp(username, 'i'); // Contains
-
-    const users = await User.find({
-      $or: [
-        { username: exactMatchRegex },
-        { username: startsWithRegex },
-        { username: endsWithRegex },
-        { username: containsRegex },
-      ],
-    }).select('_id username profilePhoto bio onlineStatus ceatedAt');
-
+      users = await User.find({
+        $or: [
+          { username: exactMatchRegex },
+          { username: startsWithRegex },
+          { username: endsWithRegex },
+          { username: containsRegex },
+        ],
+      }).select('_id username profilePhoto bio onlineStatus ceatedAt');
+    } else {
+      users = await User.find().select(
+        '_id username profilePhoto bio onlineStatus ceatedAt'
+      );
+    }
     if (!users) return res.status(404).json({ message: 'No users found' });
 
     return res.status(200).json({ users });

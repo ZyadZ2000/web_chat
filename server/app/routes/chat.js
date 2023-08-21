@@ -29,7 +29,7 @@ router.get(
   validate_data(
     ['name'],
     {
-      name: validationSchemas.nameSchema,
+      name: validationSchemas.notRequiredNameSchema,
     },
     'query'
   ),

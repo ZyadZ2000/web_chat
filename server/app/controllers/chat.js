@@ -41,22 +41,28 @@ export async function create_chat(req, res, next) {
 export async function search_chats(req, res, next) {
   try {
     const { name } = req.query;
-    const exactMatchRegex = new RegExp(`^${name}$`, 'i'); // Exact match
-    const startsWithRegex = new RegExp(`^${name}`, 'i'); // Start with
-    const endsWithRegex = new RegExp(`${name}$`, 'i'); // End with
-    const containsRegex = new RegExp(name, 'i'); // Contains
+    let chats;
+    if (name) {
+      const exactMatchRegex = new RegExp(`^${name}$`, 'i'); // Exact match
+      const startsWithRegex = new RegExp(`^${name}`, 'i'); // Start with
+      const endsWithRegex = new RegExp(`${name}$`, 'i'); // End with
+      const containsRegex = new RegExp(name, 'i'); // Contains
 
-    const chats = await Chat.find({
-      $or: [
-        { name: exactMatchRegex },
-        { name: startsWithRegex },
-        { name: endsWithRegex },
-        { name: containsRegex },
-      ],
-    })
-      .populate('creator', '_id username photo onlineStatus bio')
-      .select('_id name photo description createdAt');
-
+      chats = await GroupChat.find({
+        $or: [
+          { name: exactMatchRegex },
+          { name: startsWithRegex },
+          { name: endsWithRegex },
+          { name: containsRegex },
+        ],
+      })
+        .populate('creator', '_id username photo onlineStatus bio')
+        .select('_id name photo description createdAt');
+    } else {
+      chats = await GroupChat.find()
+        .populate('creator', '_id username photo onlineStatus bio')
+        .select('_id name photo description createdAt');
+    }
     if (!chats) return res.status(404).json({ message: 'No chats found' });
 
     return res.status(200).json({ chats });
