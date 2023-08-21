@@ -31,6 +31,11 @@ export default function (socket) {
   // Private Functions
   function handle_accept_or_decline_request(isAccept) {
     return async (data, cb) => {
+      if (typeof cb !== 'function' || typeof data !== 'object')
+        return global.io.to(socket.id).emit('error', {
+          error: "A 'data' object and a callback function must be provided.",
+        });
+
       const errors = validate_fields(['requestId'], data, {
         requestId: validationSchemas.objectIdSchema,
       });
@@ -50,6 +55,11 @@ export default function (socket) {
 
   function handle_send_private_or_friend_request(isPrivate) {
     return async (data, cb) => {
+      if (typeof cb !== 'function' || typeof data !== 'object')
+        return global.io.to(socket.id).emit('error', {
+          error: "A 'data' object and a callback function must be provided.",
+        });
+
       const errors = validate_fields(['receiverId'], data, {
         receiverId: validationSchemas.objectIdSchema,
       });
@@ -69,6 +79,11 @@ export default function (socket) {
 
   function handle_send_group_or_join_request(isGroup) {
     return async (data, cb) => {
+      if (typeof cb !== 'function' || typeof data !== 'object')
+        return global.io.to(socket.id).emit('error', {
+          error: "A 'data' object and a callback function must be provided.",
+        });
+
       const errors = isGroup
         ? validate_fields(['chatId', 'receiverId'], data, {
             chatId: validationSchemas.objectIdSchema,

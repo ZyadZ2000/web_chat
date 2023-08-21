@@ -201,6 +201,13 @@ export async function add_or_remove_admin(socket, data, cb, isAdd) {
               else: false,
             },
           },
+          isMember: {
+            $cond: {
+              if: { $in: [admin._id, '$members'] },
+              then: true,
+              else: false,
+            },
+          },
           isAdmin: {
             $cond: {
               if: {
@@ -225,6 +232,7 @@ export async function add_or_remove_admin(socket, data, cb, isAdd) {
 
     if (!chat) throw new Error('Chat not found');
     if (!chat.isCreator) throw new Error('Not authorized');
+    if (!chat.isMember) throw new Error('User is not a member');
     if (!chat.isAdmin && !isAdd) throw new Error('User is not an admin');
     if (chat.isAdmin && isAdd) throw new Error('User is already an admin');
 
@@ -483,7 +491,10 @@ export async function change_name_or_photo(socket, data, cb, isName) {
     if (!chat.isCreator) throw new Error('Not authorized');
 
     if (isName) {
-      await Chat.updateOne({ _id: chat._id }, { $set: { name: chatName } });
+      await GroupChat.updateOne(
+        { _id: chat._id },
+        { $set: { name: chatName } }
+      );
       cb({ success: true });
       return global.io
         .to(chat._id.toString())
@@ -508,7 +519,10 @@ export async function change_name_or_photo(socket, data, cb, isName) {
 
       writeStream.on('finish', async (err) => {
         if (err) return cb({ success: false, error: err.message });
-        await Chat.updateOne({ _id: chat._id }, { $set: { photo: fileName } });
+        await GroupChat.updateOne(
+          { _id: chat._id },
+          { $set: { photo: fileName } }
+        );
 
         cb({ success: true });
 
@@ -521,6 +535,6 @@ export async function change_name_or_photo(socket, data, cb, isName) {
       writeStream.end();
     }
   } catch (error) {
-    return cb({ success: false, error });
+    return cb({ success: false, error: error.message });
   }
 }

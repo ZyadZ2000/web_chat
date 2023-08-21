@@ -5,6 +5,11 @@ import * as validationSchemas from '../../config/joi.js';
 
 export default function (socket) {
   socket.on('user:removeFriend', async (data, cb) => {
+    if (typeof cb !== 'function' || typeof data !== 'object')
+      return global.io.to(socket.id).emit('error', {
+        error: "A 'data' object and a callback function must be provided.",
+      });
+
     const errors = validate_fields(['friendId'], data, {
       friendId: validationSchemas.objectIdSchema,
     });
@@ -17,6 +22,11 @@ export default function (socket) {
   });
 
   socket.on('user:delete', async (data, cb) => {
+    if (typeof cb !== 'function' || typeof data !== 'object')
+      return global.io.to(socket.id).emit('error', {
+        error: "A 'data' object and a callback function must be provided.",
+      });
+
     const errors = validate_fields(['email', 'password'], data, {
       email: validationSchemas.emailSchema,
       password: validationSchemas.passwordSchema,

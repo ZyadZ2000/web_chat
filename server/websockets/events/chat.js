@@ -5,6 +5,11 @@ import * as validationSchemas from '../../config/joi.js';
 
 export default function (socket) {
   socket.on('chat:join', async (data, cb) => {
+    if (typeof cb !== 'function' || typeof data !== 'object')
+      return global.io.to(socket.id).emit('error', {
+        error: "A 'data' object and a callback function must be provided.",
+      });
+
     const errors = validate_fields(['chatId'], data, {
       chatId: validationSchemas.objectIdSchema,
     });
@@ -16,6 +21,11 @@ export default function (socket) {
   });
 
   socket.on('chat:sendMessage', async (data, cb) => {
+    if (typeof cb !== 'function' || typeof data !== 'object')
+      return global.io.to(socket.id).emit('error', {
+        error: "A 'data' object and a callback function must be provided.",
+      });
+
     // In the case of a file it will be saved in the handler.
     const errors = validate_fields(
       ['chatId', 'messageContent', 'messageType'],
@@ -38,6 +48,11 @@ export default function (socket) {
   socket.on('chat:removeAdmin', handle_admin_add_or_remove(false));
 
   socket.on('chat:removeMember', async (data, cb) => {
+    if (typeof cb !== 'function' || typeof data !== 'object')
+      return global.io.to(socket.id).emit('error', {
+        error: "A 'data' object and a callback function must be provided.",
+      });
+
     const errors = validate_fields(['chatId', 'memberId'], data, {
       chatId: validationSchemas.objectIdSchema,
       memberId: validationSchemas.objectIdSchema,
@@ -53,6 +68,11 @@ export default function (socket) {
   socket.on('chat:changePhoto', handle_change_name_or_photo(false));
 
   socket.on('chat:leave', async (data, cb) => {
+    if (typeof cb !== 'function' || typeof data !== 'object')
+      return global.io.to(socket.id).emit('error', {
+        error: "A 'data' object and a callback function must be provided.",
+      });
+
     const errors = validate_fields(['chatId'], data, {
       chatId: validationSchemas.objectIdSchema,
     });
@@ -65,6 +85,11 @@ export default function (socket) {
 
   function handle_admin_add_or_remove(isAdd) {
     return async (data, cb) => {
+      if (typeof cb !== 'function' || typeof data !== 'object')
+        return global.io.to(socket.id).emit('error', {
+          error: "A 'data' object and a callback function must be provided.",
+        });
+
       const errors = validate_fields(['chatId', 'adminId'], data, {
         chatId: validationSchemas.objectIdSchema,
         adminId: validationSchemas.objectIdSchema,
@@ -79,12 +104,17 @@ export default function (socket) {
 
   function handle_change_name_or_photo(isName) {
     return async (data, cb) => {
+      if (typeof cb !== 'function' || typeof data !== 'object')
+        return global.io.to(socket.id).emit('error', {
+          error: "A 'data' object and a callback function must be provided.",
+        });
+
       const errors = validate_fields(['chatId', 'chatName'], data, {
         chatId: validationSchemas.objectIdSchema,
         chatName: validationSchemas.nameSchema,
       });
 
-      if (Object.keys(errors).length === 0)
+      if (Object.keys(errors).length !== 0)
         return cb({ success: false, error: errors });
       await chatHandlers.change_name_or_photo(socket, data, cb, isName);
     };
