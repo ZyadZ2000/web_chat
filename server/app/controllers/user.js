@@ -39,8 +39,7 @@ export async function get_friends(req, res) {
   try {
     const user = await User.findById(req.userId);
 
-    if (!user.friends)
-      return res.status(404).json({ message: 'Friends not found' });
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
     const friends = await User.find({ _id: { $in: user.friends } }).select(
       '_id username profilePhoto onlineStatus bio ceatedAt'
@@ -159,6 +158,11 @@ export async function update_email(req, res, next) {
   try {
     const { newEmail } = req.body;
 
+    const duplicate = await User.findOne({ email: newEmail }).select('_id');
+
+    if (duplicate)
+      return res.status(409).json({ message: 'Email already in use' });
+
     req.user.email = newEmail;
 
     await req.user.save();
@@ -172,6 +176,13 @@ export async function update_email(req, res, next) {
 export async function update_username(req, res, next) {
   try {
     const { newUsername } = req.body;
+
+    const duplicate = await User.findOne({ username: newUsername }).select(
+      '_id'
+    );
+
+    if (duplicate)
+      return res.status(409).json({ message: 'Username already in use' });
 
     req.user.username = newUsername;
 
@@ -202,7 +213,7 @@ export async function update_bio(req, res, next) {
   try {
     const { bio } = req.body;
 
-    await User.findByIdAndUpdate(req.userId, { bio: bio });
+    await User.updateOne({ _id: req.userId }, { bio: bio });
 
     return res.status(200).json({ message: 'Bio updated successfully' });
   } catch (error) {
@@ -217,9 +228,12 @@ export async function update_picture(req, res, next) {
     if (!profilePhotoFileName)
       return res.status(400).json({ message: 'No file uploaded' });
 
-    await User.findByIdAndUpdate(req.userId, {
-      profilePhoto: profilePhotoFileName,
-    });
+    await User.updateOne(
+      { _id: req.userId },
+      {
+        profilePhoto: profilePhotoFileName,
+      }
+    );
 
     return res
       .status(200)
@@ -228,13 +242,3 @@ export async function update_picture(req, res, next) {
     return next(error);
   }
 }
-
-// export async function delete_user(req, res, next) {
-//   try {
-//     await User.findByIdAndDelete(req.user._id);
-
-//     return res.status(200).json({ message: 'User deleted successfully' });
-//   } catch (error) {
-//     return next(error);
-//   }
-// }

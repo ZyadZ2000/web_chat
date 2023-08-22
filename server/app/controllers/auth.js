@@ -29,7 +29,9 @@ export async function signup(req, res, next) {
     });
 
     if (oldUser)
-      return res.status(409).json({ message: 'User already exists!' });
+      return res
+        .status(409)
+        .json({ message: 'email or username already used!' });
 
     const profilePhotoFilename = req.file?.filename || 'default_profile.png';
 
@@ -115,6 +117,8 @@ export async function reset_confirm(req, res, next) {
       tokenExpiration: { $gt: Date.now() },
     });
 
+    if (!foundUser) return res.status(404).send('User not found!');
+
     const hashedPassword = await bcrypt.hash(password, 10);
     foundUser.password = hashedPassword;
     foundUser.token = undefined;
@@ -122,6 +126,6 @@ export async function reset_confirm(req, res, next) {
     await foundUser.save();
     return res.status(201).send('Password reset successfully! Go to login');
   } catch (error) {
-    return res.status(500).send("Server error! Can't reset password");
+    return next(error);
   }
 }
