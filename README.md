@@ -1,10 +1,10 @@
 # Description
 
-A web chat application built with Node.js, Express, Socket.io, and React.
+A web chat application built with Node.js, Express, MongoDB, Socket.io, and React.
 
 Includes features such as: authentication, validation, authorization, private messaging, and group messaging, user friends, and more.
 
-This repository includes both the back-end and front-end of the project.
+This repository includes both the back-end and front-end of the project. (Front-end is yet to be implemented)
 
 # API Documentation
 
@@ -163,7 +163,7 @@ Get the profile info of a user by providing the username in the request params.
 - **Status 200:** The user profile info.
 - **Status 500:** Server Error. The response will include the error information.
 
-## GET /user/friends
+## GET `/user/friends`
 
 Get the friends list of the user using the jsonwebtoken.
 
