@@ -13,7 +13,7 @@ export async function delete_request(req, res, next) {
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
     if (request.type === 'privateRequest' || request.type === 'friendRequest') {
-      if (request.sender !== userId)
+      if (request.sender.toString() !== userId.toString())
         return res.status(401).json({ message: 'Not authorized' });
     } else if (request.type === 'groupRequest') {
       const chat = await GroupChat.findOne({

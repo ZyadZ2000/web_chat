@@ -9,8 +9,8 @@ import validate_data from '../middleware/validation.js';
 
 const router = express.router();
 
-router.post(
-  '/delete',
+router.delete(
+  '/',
   validate_data(
     ['requestId'],
     {

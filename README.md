@@ -416,7 +416,8 @@ The request body must be a JSON object containing the following fields:
 ### Response
 
 - **Status 400:** Validation error. The response will include detailed error information.
-- **Status 401:** Chat not found, or the client isn't authorized.
+- **Status 401:** Authentication failed. The response will include the message `"Not Authenticated"`.
+- **Status 402:** Chat not found, or the client isn't authorized.
 - **Status 404:** Requests not found.
 - **Status 200:** list of found requests.
 - **Status 500:** Server Error. The response will include the error information.
@@ -449,4 +450,27 @@ Example request body:
 - **Status 400:** Validation errors. The response will include detailed error information.
 - **Status 401:** Authentication failed. The response will include the message `"Not Authenticated"`.
 - **Status 201:** Chat created successfully, the response will include the chat info in the `chat` field.
+- **Status 500:** Server Error, The response will include the error information.
+
+# Request Routes
+
+## DELETE /request/
+
+Delete the sent requets either by the sender or one of the chat admins.
+
+`The jsonwebtoken must be sent in the Authorization header as a Bearer token`
+
+### Request Body
+
+The request body must be a JSON object containing the following fields:
+
+- `requestId`: The MongoDB ObjectId of the request to delete from the database.
+
+### Response
+
+- **Status 400:** Validation errors. The response will include detailed error information.
+- **Status 404:** Request not found.
+- **Status 401:** Authentication failed. The response will include the message `"Not Authenticated"`.
+- **Status 402:** Request not deleted due to being unauthorized.
+- **Status 200:** Request deleted successfully.
 - **Status 500:** Server Error, The response will include the error information.
