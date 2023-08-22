@@ -365,3 +365,88 @@ Change the user photo.
 - **Status 401:** Authentication failed. The response will include the message `"Not Authenticated"`.
 - **Status 200:** Profile Photo changed successfully.
 - **Status 500:** Server Error, The response will include the error information.
+
+# Chat Routes
+
+## GET /chat/
+
+Get the chat info and messages
+
+`The jsonwebtoken must be sent in the Authorization header as a Bearer token`
+
+### Request Body
+
+The request body must be a JSON object containing the following fields:
+
+- `chatId`: The MongoDB ObjectId of the chat to fetch from the database.
+
+### Response
+
+- **Status 400:** Validation errors. The response will include detailed error information.
+- **Status 401:** Authentication failed. The response will include the message `"Not Authenticated"`.
+- **Status 404:** Chat not found or not accessible to the user due to not being a member.
+- **Status 200:** Chat found an sent in the `chat` field.
+- **Status 500:** Server Error, The response will include the error information.
+
+## GET /chat/search
+
+Search for group chats by their name.
+
+`If name not provided in the request query, all group chats will be returned`
+
+### Response
+
+- **Status 400:** Validation error. The response will include detailed error information.
+- **Status 404:** Chats not found.
+- **Status 200:** list of found chats.
+- **Status 500:** Server Error. The response will include the error information.
+
+## GET /chat/requests
+
+Get the chat sent invites or received join requests.
+
+`The jsonwebtoken must be sent in the Authorization header as a Bearer token`
+
+### Request Body
+
+The request body must be a JSON object containing the following fields:
+
+- `chatId`: The MongoDB ObjectId of the chat to fetch from the database.
+
+### Response
+
+- **Status 400:** Validation error. The response will include detailed error information.
+- **Status 401:** Chat not found, or the client isn't authorized.
+- **Status 404:** Requests not found.
+- **Status 200:** list of found requests.
+- **Status 500:** Server Error. The response will include the error information.
+
+## POST /chat/create
+
+Create a group chat room.
+
+`The jsonwebtoken must be sent in the Authorization header as a Bearer token`
+
+### Request Body
+
+The request body must be a JSON object containing the following fields:
+
+- `chatName`: Must be a string with minimum length of 3 characters and maximum of 30.
+- (Optional) `chatDescription`: Must be a string with minimum length of 1 characters and maximum of 256.
+- (Optional) `chatPhoto`: A file that can be sent with the HTTP request to be used as the chat's photo.
+
+Example request body:
+
+```json
+{
+  "chatName": "newChatName",
+  "chatDescription": "description"
+}
+```
+
+### Response
+
+- **Status 400:** Validation errors. The response will include detailed error information.
+- **Status 401:** Authentication failed. The response will include the message `"Not Authenticated"`.
+- **Status 201:** Chat created successfully, the response will include the chat info in the `chat` field.
+- **Status 500:** Server Error, The response will include the error information.

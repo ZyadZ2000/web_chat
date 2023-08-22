@@ -9,19 +9,17 @@ import * as validationSchemas from '../../config/joi.js';
 
 const router = express.Router();
 
-router.post(
-  '/create',
+router.get(
+  '/',
   validate_data(
-    ['chatName', 'chatDescription'],
+    ['chatId'],
     {
-      chatName: validationSchemas.nameSchema,
-      chatDescription: validationSchemas.longStringSchema,
+      chatId: validationSchemas.objectIdSchema,
     },
     'body'
   ),
   auth_jwt,
-  upload.single('chatPhoto'),
-  chatController.create_chat
+  chatController.get_chat
 );
 
 router.get(
@@ -49,17 +47,19 @@ router.get(
   chatController.get_chat_requests
 );
 
-router.get(
-  '/',
+router.post(
+  '/create',
   validate_data(
-    ['chatId'],
+    ['chatName', 'chatDescription'],
     {
-      chatId: validationSchemas.objectIdSchema,
+      chatName: validationSchemas.nameSchema,
+      chatDescription: validationSchemas.longStringSchema,
     },
     'body'
   ),
   auth_jwt,
-  chatController.get_chat
+  upload.single('chatPhoto'),
+  chatController.create_chat
 );
 
 export default router;
