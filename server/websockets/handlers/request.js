@@ -14,11 +14,17 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
+    let error;
+
     const { requestId } = data;
 
     const request = await Request.findById(requestId);
 
-    if (!request) throw new Error('Request not found');
+    if (!request) {
+      error = new Error('Request not found');
+      error.code = 404;
+      throw error;
+    }
 
     let result;
     switch (request.type) {
@@ -62,7 +68,11 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    return cb({ success: false, error: error.message });
+    return cb({
+      success: false,
+      code: error.code || 500,
+      error: error.message,
+    });
   }
 }
 
@@ -73,6 +83,7 @@ export async function send_private_or_friend_request(
   isPrivate
 ) {
   try {
+    let error;
     const receiverId = new mongoose.Types.ObjectId(data.receiverId);
 
     let receiver = await User.aggregate([
@@ -100,17 +111,28 @@ export async function send_private_or_friend_request(
 
     receiver = receiver[0];
 
-    if (!receiver) throw new Error('Receiver not found');
+    if (!receiver) {
+      error = new Error('Receiver not found');
+      error.code = 404;
+      throw error;
+    }
 
     if (isPrivate) {
       const chat = await PrivateChat.findOne({
         users: { $all: [socket.user._id, receiver._id] },
       }).select('_id');
 
-      if (chat)
-        throw new Error('A private chat with the receiver already exists');
+      if (chat) {
+        error = new Error('A private chat with the receiver already exists');
+        error.code = 400;
+        throw error;
+      }
     } else {
-      if (receiver.isAlreadyFriend) throw new Error('You are already friends');
+      if (receiver.isAlreadyFriend) {
+        error = new Error('You are already friends with the receiver');
+        error.code = 400;
+        throw error;
+      }
     }
 
     const request = new Request({
@@ -136,12 +158,17 @@ export async function send_private_or_friend_request(
       },
     });
   } catch (error) {
-    return cb({ success: false, error: error.message });
+    return cb({
+      success: false,
+      code: error.code || 400,
+      error: error.message,
+    });
   }
 }
 
 export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
   try {
+    let error;
     let receiverId;
     let receiver;
 
@@ -152,7 +179,11 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
 
       receiver = await User.findById(receiverId).select('_id');
 
-      if (!receiver) throw new Error('Receiver not found');
+      if (!receiver) {
+        error = new Error('Receiver not found');
+        error.code = 404;
+        throw error;
+      }
     }
     let chat = await GroupChat.aggregate([
       {
@@ -213,11 +244,23 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
 
     chat = chat[0];
 
-    if (!chat) throw new Error('Chat not found');
+    if (!chat) {
+      error = new Error('Chat not found');
+      error.code = 404;
+      throw error;
+    }
 
-    if (isGroupReq && !chat.isAuthorized) throw new Error('Not authorized');
+    if (isGroupReq && !chat.isAuthorized) {
+      error = new Error('Not authorized');
+      error.code = 402;
+      throw error;
+    }
 
-    if (chat.isAlreadyMember) throw new Error('User is already a member');
+    if (chat.isAlreadyMember) {
+      error = new Error('User is already a member');
+      error.code = 400;
+      throw error;
+    }
 
     const request = isGroupReq
       ? new GroupChatRequest({
@@ -250,13 +293,22 @@ export async function send_group_or_join_request(socket, data, cb, isGroupReq) {
             },
       });
   } catch (error) {
-    return cb({ success: false, error: error.message });
+    return cb({
+      success: false,
+      code: error.code || 500,
+      error: error.message,
+    });
   }
 }
 
 async function private_and_friend_request(user, request, session, isAccept) {
-  if (request.receiver.toString() !== user.id)
-    throw new Error('Not authorized');
+  let error;
+
+  if (request.receiver.toString() !== user.id) {
+    error = new Error('Not authorized');
+    error.code = 401;
+    throw error;
+  }
 
   let result = { cbData: {}, eventData: { type: request.type } };
 
@@ -264,7 +316,11 @@ async function private_and_friend_request(user, request, session, isAccept) {
     '_id username bio profilePhoto onlineStatus createdAt'
   );
 
-  if (!sender) throw new Error('Sender not found');
+  if (!sender) {
+    error = new Error('Sender not found');
+    error.code = 404;
+    throw error;
+  }
 
   result.to = sender.id;
 
@@ -321,14 +377,22 @@ async function private_and_friend_request(user, request, session, isAccept) {
 }
 
 async function group_request(user, request, session, isAccept) {
-  if (request.receiver.toString() !== user.id)
-    throw new Error('Not authorized');
+  let error;
+  if (request.receiver.toString() !== user.id) {
+    error = new Error('Not authorized');
+    error.code = 401;
+    throw error;
+  }
 
   const chat = await GroupChat.findById(request.chat).select(
     '_id name photo description creator createdAt'
   );
 
-  if (!chat) throw new Error('Chat not found');
+  if (!chat) {
+    error = new Error('Chat not found');
+    error.code = 404;
+    throw error;
+  }
 
   let result = { cbData: {}, eventData: {} };
 
@@ -363,6 +427,7 @@ async function group_request(user, request, session, isAccept) {
 }
 
 async function join_request(user, request, session, isAccept) {
+  let error;
   let chat = await Chat.aggregate([
     {
       $match: { _id: request.chat },
@@ -398,9 +463,17 @@ async function join_request(user, request, session, isAccept) {
 
   chat = chat[0];
 
-  if (!chat) throw new Error('Chat not found');
+  if (!chat) {
+    error = new Error('Chat not found');
+    error.code = 404;
+    throw error;
+  }
 
-  if (!chat.isAuthorized) throw new Error('Not authorized');
+  if (!chat.isAuthorized) {
+    error = new Error('Not authorized');
+    error.code = 401;
+    throw error;
+  }
 
   const sender = await User.findById(request.sender).select(
     '_id username bio profilePhoto onlineStatus createdAt'

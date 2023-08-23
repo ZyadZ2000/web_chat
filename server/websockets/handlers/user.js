@@ -10,6 +10,7 @@ export async function remove_friend(socket, data, cb) {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
+    let error;
     const friendId = new mongoose.Types.ObjectId(data.friendId);
 
     let friend = await User.aggregate([
@@ -42,8 +43,16 @@ export async function remove_friend(socket, data, cb) {
 
     friend = friend[0];
 
-    if (!friend) throw new Error('User not found');
-    if (!friend.isFriend) throw new Error('User is not your friend');
+    if (!friend) {
+      error = new Error('User not found');
+      error.code = 404;
+      throw error;
+    }
+    if (!friend.isFriend) {
+      error = new Error('User is not your friend');
+      error.code = 400;
+      throw error;
+    }
 
     // Remove friend from both users' friends arrays
     await User.updateOne(
@@ -77,7 +86,11 @@ export async function remove_friend(socket, data, cb) {
     // Handle errors by aborting the transaction and ending the session
     await session.abortTransaction();
     session.endSession();
-    return cb({ success: false, error: error.message });
+    return cb({
+      success: false,
+      code: error.code || 500,
+      error: error.message,
+    });
   }
 }
 
@@ -85,13 +98,18 @@ export async function delete_user(socket, data, cb) {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
+    let error;
     const { email, password } = data;
 
     // Fetch user based on the provided email
     const user = await verify_credentials(email, password);
 
     // Check if user exists
-    if (!user) throw new Error('Not authenticated');
+    if (!user) {
+      error = new Error('Not authenticated');
+      error.code = 401;
+      throw error;
+    }
 
     await User.updateMany(
       { friends: socket.user._id },
@@ -118,6 +136,10 @@ export async function delete_user(socket, data, cb) {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    return cb({ success: false, error: error.message });
+    return cb({
+      success: false,
+      code: error.code || 500,
+      error: error.message,
+    });
   }
 }

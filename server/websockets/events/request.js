@@ -41,7 +41,7 @@ export default function (socket) {
       });
 
       if (Object.keys(errors).length !== 0) {
-        return cb({ success: false, error: errors });
+        return cb({ success: false, code: 400, error: errors });
       }
 
       await requestHandlers.accept_or_decline_request(
@@ -65,7 +65,7 @@ export default function (socket) {
       });
 
       if (Object.keys(errors).length !== 0) {
-        return cb({ success: false, errors });
+        return cb({ success: false, code: 400, errors });
       }
 
       await requestHandlers.send_private_or_friend_request(
@@ -94,7 +94,7 @@ export default function (socket) {
           });
 
       if (Object.keys(errors).length !== 0) {
-        return cb({ success: false, errors });
+        return cb({ success: false, code: 400, errors });
       }
 
       await requestHandlers.send_group_or_join_request(

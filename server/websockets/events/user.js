@@ -15,7 +15,7 @@ export default function (socket) {
     });
 
     if (Object.keys(errors).length !== 0) {
-      return cb({ success: false, error: errors });
+      return cb({ success: false, code: 400, error: errors });
     }
 
     await userHandlers.remove_friend(socket, data, cb);
@@ -33,7 +33,7 @@ export default function (socket) {
     });
 
     if (Object.keys(errors).length !== 0) {
-      return cb({ success: false, error: errors });
+      return cb({ success: false, code: 400, error: errors });
     }
 
     await userHandlers.delete_user(socket, data, cb);

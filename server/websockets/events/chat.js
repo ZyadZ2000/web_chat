@@ -15,7 +15,7 @@ export default function (socket) {
     });
 
     if (Object.keys(errors).length !== 0)
-      return cb({ success: false, error: errors });
+      return cb({ success: false, code: 400, error: errors });
 
     await chatHandlers.join_chat(socket, data, cb);
   });
@@ -38,7 +38,7 @@ export default function (socket) {
     );
 
     if (Object.keys(errors).length !== 0)
-      return cb({ success: false, error: errors });
+      return cb({ success: false, code: 400, error: errors });
 
     await chatHandlers.send_message(socket, data, cb);
   });
@@ -59,13 +59,17 @@ export default function (socket) {
     });
 
     if (Object.keys(errors).length !== 0)
-      return cb({ success: false, error: errors });
+      return cb({ success: false, code: 400, error: errors });
 
     await chatHandlers.remove_member(socket, data, cb);
   });
 
-  socket.on('chat:changeName', handle_change_name_or_photo(true));
-  socket.on('chat:changePhoto', handle_change_name_or_photo(false));
+  socket.on('chat:changeName', handle_change_name_or_photo_or_description(1));
+  socket.on('chat:changePhoto', handle_change_name_or_photo_or_description(2));
+  socket.on(
+    'chat:changeDescription',
+    handle_change_name_or_photo_or_description(3)
+  );
 
   socket.on('chat:leave', async (data, cb) => {
     if (typeof cb !== 'function' || typeof data !== 'object')
@@ -78,7 +82,7 @@ export default function (socket) {
     });
 
     if (Object.keys(errors).length !== 0)
-      return cb({ success: false, error: errors });
+      return cb({ success: false, code: 400, error: errors });
 
     await chatHandlers.leave_chat(socket, data, cb);
   });
@@ -96,27 +100,39 @@ export default function (socket) {
       });
 
       if (Object.keys(errors).length !== 0)
-        return cb({ success: false, error: errors });
+        return cb({ success: false, code: 400, error: errors });
 
       await chatHandlers.add_or_remove_admin(socket, data, cb, isAdd);
     };
   }
 
-  function handle_change_name_or_photo(isName) {
+  function handle_change_name_or_photo_or_description(
+    nameOrPhotoOrDescription
+  ) {
     return async (data, cb) => {
       if (typeof cb !== 'function' || typeof data !== 'object')
         return global.io.to(socket.id).emit('error', {
           error: "A 'data' object and a callback function must be provided.",
         });
 
-      const errors = validate_fields(['chatId', 'chatName'], data, {
-        chatId: validationSchemas.objectIdSchema,
-        chatName: validationSchemas.nameSchema,
-      });
+      const errors = validate_fields(
+        ['chatId', 'chatName', 'chatDescription'],
+        data,
+        {
+          chatId: validationSchemas.objectIdSchema,
+          chatName: validationSchemas.notRequiredNameSchema,
+          chatDescription: validationSchemas.longStringSchema,
+        }
+      );
 
       if (Object.keys(errors).length !== 0)
-        return cb({ success: false, error: errors });
-      await chatHandlers.change_name_or_photo(socket, data, cb, isName);
+        return cb({ success: false, code: 400, error: errors });
+      await chatHandlers.change_name_or_photo_or_description(
+        socket,
+        data,
+        cb,
+        nameOrPhotoOrDescription
+      );
     };
   }
 }
