@@ -89,8 +89,6 @@ function io_init(server) {
         //inform all connected sockets of user disconnection
         global.io.emit('user:disonnected', socket.user.username);
       }
-
-      console.log(`${socket.id || 'socket'} disconnected`);
     });
   });
 }
