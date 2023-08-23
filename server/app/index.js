@@ -40,7 +40,7 @@ app.use('/user', userRouter);
 app.use('/chat', chatRouter);
 
 app.use((req, res) => {
-  res.status(404).json({ message: "This route doesn't exist" });
+  res.status(404).json({ message: "route doesn't exist" });
 });
 
 app.use((err, req, res, next) => {

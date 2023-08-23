@@ -26,9 +26,11 @@ const arrayObjectIdSchema = Joi.array().items(
 
 const messageContentSchema = Joi.string().min(1).max(512);
 
-const messageTypeSchema = Joi.string().required();
+const messageTypeSchema = Joi.string().valid('text', 'file').required();
 
 const resetTokenSchema = Joi.string().length(64).hex().required();
+
+const notRequiredNumberSchema = Joi.number();
 
 export {
   emailSchema,
@@ -41,4 +43,5 @@ export {
   messageContentSchema,
   messageTypeSchema,
   notRequiredNameSchema,
+  notRequiredNumberSchema,
 };

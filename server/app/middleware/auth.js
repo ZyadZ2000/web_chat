@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import User from '../../models/user.js';
 import verify_and_cache_token from '../../utils/jwtCache.js';
 import { verify_credentials } from '../../utils/auth.js';
+
 // Middleware to handle local authentication
 export const auth_local = async (req, res, next) => {
   try {
@@ -51,8 +52,12 @@ export const auth_jwt = async (req, res, next) => {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
+    const user = await User.findById(decodedToken.userId).select('_id');
+
+    if (!user) return res.status(404).json({ message: 'user not found' });
+
     // Attach the decoded user ID to the request for future middleware
-    req.userId = decodedToken.userId;
+    req.userId = user._id;
 
     next();
   } catch (error) {

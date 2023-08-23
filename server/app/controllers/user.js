@@ -5,13 +5,13 @@ import User from '../../models/user.js';
 import Chat from '../../models/chat.js';
 import Request from '../../models/request.js';
 
+const ITEMS_PER_PAGE = 20;
+
 export async function get_profile(req, res) {
   try {
     const user = await User.findById(req.userId).select(
       '_id email username profilePhoto bio ceatedAt'
     );
-
-    if (!user) return res.status(404).json({ message: 'User not found' });
 
     return res.status(200).json({ user });
   } catch (error) {
@@ -27,7 +27,7 @@ export async function get_user(req, res) {
       '_id username bio profilePhoto onlineStatus ceatedAt'
     );
 
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: 'user not found' });
 
     return res.status(200).json({ user });
   } catch (error) {
@@ -37,15 +37,21 @@ export async function get_user(req, res) {
 
 export async function get_friends(req, res) {
   try {
-    const user = await User.findById(req.userId);
+    const page = req.query.page || 1;
 
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findById(req.userId)
+      .select('_id')
+      .select({
+        friends: { $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE] },
+      });
+
+    if (!user) return res.status(404).json({ message: 'user not found' });
 
     const friends = await User.find({ _id: { $in: user.friends } }).select(
       '_id username profilePhoto onlineStatus bio ceatedAt'
     );
 
-    if (!friends) return res.status(404).json({ message: 'Friends not found' });
+    if (!friends) return res.status(404).json({ message: 'friends not found' });
 
     return res.status(200).json({ friends: friends });
   } catch (error) {
@@ -55,10 +61,16 @@ export async function get_friends(req, res) {
 
 export async function get_chats(req, res, next) {
   try {
-    const user = await User.findById(req.userId);
+    const page = req.query.page || 1;
+
+    const user = await User.findById(req.userId)
+      .select('_id')
+      .select({
+        chats: { $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE] },
+      });
 
     if (!user.chats)
-      return res.status(404).json({ message: 'Chats not found' });
+      return res.status(404).json({ message: 'chats not found' });
 
     const chats = await Chat.find({ _id: { $in: user.chats } })
       .select({
@@ -81,9 +93,9 @@ export async function get_chats(req, res, next) {
         '_id username profilePhoto onlineStatus bio ceatedAt'
       );
 
-    if (!chats) return res.status(404).json({ message: 'Chats not found' });
+    if (!chats) return res.status(404).json({ message: 'chats not found' });
 
-    return res.status(200).json({ chats: chats });
+    return res.status(200).json({ chats });
   } catch (error) {
     return next(error);
   }
@@ -91,8 +103,10 @@ export async function get_chats(req, res, next) {
 
 export async function get_received_requests(req, res, next) {
   try {
-    const userId = new mongoose.Types.ObjectId(req.userId);
-    const receivedReqs = await Request.find({ receiver: userId })
+    const page = req.query.page || 1;
+    const receivedReqs = await Request.find({ receiver: req.userId })
+      .skip((page - 1) * ITEMS_PER_PAGE)
+      .limit(ITEMS_PER_PAGE)
       .populate('sender', '_id username profilePhoto onlineStatus bio ceatedAt')
       .populate('chat', '_id name photo description ceatedAt');
 
@@ -107,8 +121,10 @@ export async function get_received_requests(req, res, next) {
 
 export async function get_sent_requests(req, res, next) {
   try {
-    const userId = new mongoose.Types.ObjectId(req.userId);
-    const sentReqs = await Request.find({ sender: userId })
+    const page = req.query.page || 1;
+    const sentReqs = await Request.find({ sender: req.userId })
+      .skip((page - 1) * ITEMS_PER_PAGE)
+      .limit(ITEMS_PER_PAGE)
       .populate(
         'receiver',
         '_id username profilePhoto onlineStatus bio ceatedAt'
@@ -126,6 +142,8 @@ export async function get_sent_requests(req, res, next) {
 export async function search_users(req, res, next) {
   try {
     const { username } = req.query;
+    const page = req.query.page || 1;
+
     let users;
     if (username) {
       const exactMatchRegex = new RegExp(`^${username}$`, 'i'); // Exact match
@@ -140,12 +158,17 @@ export async function search_users(req, res, next) {
           { username: endsWithRegex },
           { username: containsRegex },
         ],
-      }).select('_id username profilePhoto bio onlineStatus ceatedAt');
+      })
+        .skip((page - 1) * ITEMS_PER_PAGE)
+        .limit(ITEMS_PER_PAGE)
+        .select('_id username profilePhoto bio onlineStatus ceatedAt');
     } else {
-      users = await User.find().select(
-        '_id username profilePhoto bio onlineStatus ceatedAt'
-      );
+      users = await User.find()
+        .skip((page - 1) * ITEMS_PER_PAGE)
+        .limit(ITEMS_PER_PAGE)
+        .select('_id username profilePhoto bio onlineStatus ceatedAt');
     }
+
     if (!users) return res.status(404).json({ message: 'No users found' });
 
     return res.status(200).json({ users });
@@ -161,7 +184,7 @@ export async function update_email(req, res, next) {
     const duplicate = await User.findOne({ email: newEmail }).select('_id');
 
     if (duplicate)
-      return res.status(409).json({ message: 'Email already in use' });
+      return res.status(409).json({ message: 'email already in use' });
 
     req.user.email = newEmail;
 
@@ -182,7 +205,7 @@ export async function update_username(req, res, next) {
     );
 
     if (duplicate)
-      return res.status(409).json({ message: 'Username already in use' });
+      return res.status(409).json({ message: 'username already in use' });
 
     req.user.username = newUsername;
 
@@ -211,7 +234,7 @@ export async function update_password(req, res, next) {
 
 export async function update_bio(req, res, next) {
   try {
-    const { bio } = req.body;
+    const bio = req.body.bio || '';
 
     await User.updateOne({ _id: req.userId }, { bio: bio });
 

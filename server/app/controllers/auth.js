@@ -24,14 +24,19 @@ export async function signup(req, res, next) {
   try {
     const { email, password, username } = req.body;
 
-    const oldUser = await User.findOne({
-      $or: [{ email: email }, { username: username }],
+    const userWithEmail = await User.findOne({
+      email: email,
     });
 
-    if (oldUser)
-      return res
-        .status(409)
-        .json({ message: 'email or username already used!' });
+    if (userWithEmail)
+      return res.status(409).json({ message: 'email already used!' });
+
+    const userWithUsername = await User.findOne({
+      username: username,
+    });
+
+    if (userWithUsername)
+      return res.status(409).json({ message: 'username already used!' });
 
     const profilePhotoFilename = req.file?.filename || 'default_profile.png';
 
@@ -46,7 +51,7 @@ export async function signup(req, res, next) {
 
     await user.save();
 
-    return res.status(201).json({ message: 'User registered successfully!' });
+    return res.status(201).json({ message: 'user registered successfully!' });
   } catch (error) {
     return next(error);
   }
@@ -57,7 +62,7 @@ export function login(req, res, next) {
     expiresIn: '1d',
   });
 
-  if (!token) return next(new Error('Could not sign token'));
+  if (!token) return next(new Error('could not sign token'));
 
   return res.status(200).send({
     token,
@@ -94,7 +99,7 @@ export async function reset_password(req, res, next) {
         <p>Click this <a href="http://localhost:3000/auth/reset/${token}">link</a> to set a new password.</p>`,
     });
 
-    return res.status(200).json({ message: 'Email sent.' });
+    return res.status(200).json({ message: 'email sent.' });
   } catch (error) {
     next(error);
   }
@@ -102,6 +107,14 @@ export async function reset_password(req, res, next) {
 
 export function get_reset(req, res, next) {
   const resetToken = req.params.resetToken;
+
+  const userWithToken = User.findOne({
+    token: resetToken,
+    tokenExpiration: { $gt: Date.now() },
+  });
+
+  if (!userWithToken) return res.status(401).send('token is invalid!');
+
   return res.render('resetPass', {
     resetToken: resetToken,
   });
@@ -117,14 +130,14 @@ export async function reset_confirm(req, res, next) {
       tokenExpiration: { $gt: Date.now() },
     });
 
-    if (!foundUser) return res.status(404).send('User not found!');
+    if (!foundUser) return res.status(404).send('user not found!');
 
     const hashedPassword = await bcrypt.hash(password, 10);
     foundUser.password = hashedPassword;
     foundUser.token = undefined;
     foundUser.tokenExpiration = undefined;
     await foundUser.save();
-    return res.status(201).send('Password reset successfully! Go to login');
+    return res.status(201).send('password reset successfully! go to login');
   } catch (error) {
     return next(error);
   }

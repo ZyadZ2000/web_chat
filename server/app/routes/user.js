@@ -23,24 +23,65 @@ router.get(
   userController.get_user
 );
 
-router.get('/friends', auth_jwt, userController.get_friends);
+router.get(
+  '/friends',
+  auth_jwt,
+  validate_data(
+    ['page'],
+    {
+      page: validationSchemas.notRequiredNumberSchema,
+    },
+    'query'
+  ),
+  userController.get_friends
+);
 
-router.get('/chats', auth_jwt, userController.get_chats);
+router.get(
+  '/chats',
+  auth_jwt,
+  validate_data(
+    ['page'],
+    {
+      page: validationSchemas.notRequiredNumberSchema,
+    },
+    'query'
+  ),
+  userController.get_chats
+);
 
 router.get(
   '/requests/received',
   auth_jwt,
+  validate_data(
+    ['page'],
+    {
+      page: validationSchemas.notRequiredNumberSchema,
+    },
+    'query'
+  ),
   userController.get_received_requests
 );
 
-router.get('/requests/sent', auth_jwt, userController.get_sent_requests);
+router.get(
+  '/requests/sent',
+  auth_jwt,
+  validate_data(
+    ['page'],
+    {
+      page: validationSchemas.notRequiredNumberSchema,
+    },
+    'query'
+  ),
+  userController.get_sent_requests
+);
 
 router.get(
   '/search',
   validate_data(
-    ['username'],
+    ['username', 'page'],
     {
       username: validationSchemas.notRequiredNameSchema,
+      page: validationSchemas.notRequiredNumberSchema,
     },
     'query'
   ),
