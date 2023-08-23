@@ -93,8 +93,6 @@ export async function get_chats(req, res, next) {
         '_id username profilePhoto onlineStatus bio ceatedAt'
       );
 
-    if (!chats) return res.status(404).json({ message: 'chats not found' });
-
     return res.status(200).json({ chats });
   } catch (error) {
     return next(error);
@@ -109,9 +107,6 @@ export async function get_received_requests(req, res, next) {
       .limit(ITEMS_PER_PAGE)
       .populate('sender', '_id username profilePhoto onlineStatus bio ceatedAt')
       .populate('chat', '_id name photo description ceatedAt');
-
-    if (!receivedReqs)
-      return res.status(404).json({ message: 'No received requests' });
 
     return res.status(200).json({ receivedReqs });
   } catch (error) {
@@ -130,8 +125,6 @@ export async function get_sent_requests(req, res, next) {
         '_id username profilePhoto onlineStatus bio ceatedAt'
       )
       .populate('chat', '_id name photo description ceatedAt');
-
-    if (!sentReqs) return res.status(404).json({ message: 'No sent requests' });
 
     return res.status(200).json({ sentReqs });
   } catch (error) {
@@ -168,8 +161,6 @@ export async function search_users(req, res, next) {
         .limit(ITEMS_PER_PAGE)
         .select('_id username profilePhoto bio onlineStatus ceatedAt');
     }
-
-    if (!users) return res.status(404).json({ message: 'No users found' });
 
     return res.status(200).json({ users });
   } catch (error) {

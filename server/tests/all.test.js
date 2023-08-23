@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 // Custom Modules
 import io_init from '../websockets/index.js';
 import authTests from './authTests.js';
+import userTests from './userTests.js';
 
 // Node Modules
 import http from 'http';
@@ -34,4 +35,5 @@ afterAll(async () => {
 describe('all the tests', () => {
   let socket;
   authTests(socket);
+  userTests(socket);
 });
