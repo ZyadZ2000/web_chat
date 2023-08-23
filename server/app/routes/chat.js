@@ -6,6 +6,7 @@ import { auth_jwt } from '../middleware/auth.js';
 import upload from '../../config/multer.js';
 import validate_data from '../middleware/validation.js';
 import * as validationSchemas from '../../config/joi.js';
+import { validate } from 'uuid';
 
 const router = express.Router();
 
@@ -18,8 +19,35 @@ router.get(
     },
     'body'
   ),
+  validate_data(
+    ['page'],
+    {
+      page: validationSchemas.notRequiredNumberSchema,
+    },
+    'query'
+  ),
   auth_jwt,
-  chatController.get_chat
+  chatController.get_chat(false)
+);
+
+router.get(
+  '/messages',
+  validate_data(
+    ['chatId'],
+    {
+      chatId: validationSchemas.objectIdSchema,
+    },
+    'body'
+  ),
+  validate_data(
+    ['page'],
+    {
+      page: validationSchemas.notRequiredNumberSchema,
+    },
+    'query'
+  ),
+  auth_jwt,
+  chatController.get_chat(true)
 );
 
 router.get(

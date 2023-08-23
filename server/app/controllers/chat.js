@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import Chat, { GroupChat } from '../../models/chat.js';
 import User from '../../models/user.js';
 
+const ITEMS_PER_PAGE = 20;
+
 export async function create_chat(req, res, next) {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -25,12 +27,12 @@ export async function create_chat(req, res, next) {
       { $push: { chats: chat._id } }
     ).session(session);
 
-    await chat.save();
+    await GroupChat.create([chat], { session: session });
 
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(201).json({ message: 'Chat created successfully', chat });
+    return res.status(201).json({ message: 'chat created successfully', chat });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -41,6 +43,8 @@ export async function create_chat(req, res, next) {
 export async function search_chats(req, res, next) {
   try {
     const { name } = req.query;
+    const page = req.query.page || 1;
+
     let chats;
     if (name) {
       const exactMatchRegex = new RegExp(`^${name}$`, 'i'); // Exact match
@@ -56,11 +60,15 @@ export async function search_chats(req, res, next) {
           { name: containsRegex },
         ],
       })
+        .skip((page - 1) * ITEMS_PER_PAGE)
+        .limit(ITEMS_PER_PAGE)
         .populate('creator', '_id username photo onlineStatus bio')
         .select('_id name photo description createdAt');
     } else {
       chats = await GroupChat.find()
-        .populate('creator', '_id username photo onlineStatus bio')
+        .skip((page - 1) * ITEMS_PER_PAGE)
+        .limit(ITEMS_PER_PAGE)
+        .populate('creator', '_id username photo onlineStatus bio createdAt')
         .select('_id name photo description createdAt');
     }
     if (!chats) return res.status(404).json({ message: 'No chats found' });
@@ -71,49 +79,78 @@ export async function search_chats(req, res, next) {
   }
 }
 
-export async function get_chat(req, res, next) {
-  try {
-    const { chatId } = req.body;
-    const userId = new mongoose.Types.ObjectId(req.userId);
+export function get_chat(onlyMessages) {
+  return async function (req, res, next) {
+    try {
+      const { chatId } = req.body;
+      const userId = req.userId;
+      const page = req.query.page || 1;
+      let chat;
+      if (!onlyMessages) {
+        chat = await Chat.findOne({
+          _id: chatId,
+          $or: [{ members: userId }, { users: userId }, { creator: userId }],
+        })
+          .select(
+            '_id admins type users members creator photo name description createdAt'
+          )
+          .select({
+            messages: { $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE] },
+          })
+          .populate(
+            'members',
+            '_id username profilePhoto onlineStatus bio createdAt'
+          )
+          .populate(
+            'users',
+            '_id username profilePhoto onlineStatus bio createdAt'
+          )
+          .populate(
+            'creator',
+            '_id username profilePhoto onlineStatus bio createdAt'
+          );
+      } else {
+        chat = await Chat.findOne({
+          _id: chatId,
+          $or: [{ members: userId }, { users: userId }, { creator: userId }],
+        }).select({
+          messages: { $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE] },
+        });
+      }
+      if (!chat) return res.status(404).json({ message: 'chat not found' });
 
-    const chat = await Chat.findOne({
-      _id: chatId,
-      $or: [{ members: userId }, { users: userId }, { creator: userId }],
-    })
-      .populate('members', '_id username profilePhoto onlineStatus bio')
-      .populate('users', '_id username profilePhoto onlineStatus bio')
-      .populate('creator', '_id username profilePhoto onlineStatus bio')
-      .populate(
-        'messages.sender',
-        '_id username profilePhoto onlineStatus bio'
-      );
-
-    if (!chat) return res.status(404).json({ message: 'Chat not found' });
-
-    return res.status(200).json({ chat });
-  } catch (error) {
-    return next(error);
-  }
+      return res.status(200).json({ chat });
+    } catch (error) {
+      return next(error);
+    }
+  };
 }
 
 export async function get_chat_requests(req, res, next) {
   try {
     const { chatId } = req.body;
-    const userId = new mongoose.Types.ObjectId(req.userId);
+    const page = req.query.page || 1;
+    const userId = req.userId;
 
     const chat = await GroupChat.findOne({
       _id: chatId,
       $or: [{ admins: userId }, { creator: userId }],
-    });
+    }).select('_id');
 
     if (!chat)
       return res.status(401).json({
-        message: 'Requests can only be viewed by admins or the creator',
+        message: 'chat not found or unauthorized',
       });
 
     const requests = await Request.find({
-      chat: new mongoose.Types.ObjectId(chatId),
-    });
+      chat: chat._id,
+    })
+      .skip((page - 1) * ITEMS_PER_PAGE)
+      .limit(ITEMS_PER_PAGE)
+      .populate(
+        'sender',
+        '_id username profilePhoto onlineStatus bio createdAt'
+      );
 
     if (!requests)
       return res.status(404).json({ message: 'No requests were found' });
