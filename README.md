@@ -6,6 +6,8 @@ Includes features such as: authentication, validation, authorization, private me
 
 This repository includes both the back-end and front-end of the project. (Front-end is yet to be implemented)
 
+`Current Status: API completed and tested using jest.`
+
 # API Documentation
 
 This is a documentaion of the API provided by the server.
@@ -514,7 +516,7 @@ Removes a friend from the user's friends list.
 
   After successfully removing the friend, a `user:removeFriend` event will be emitted to the removed friend's socket, containing information about the requesting user.
 
-## EVENT: 'user:delete'
+## EVENT: `user:delete`
 
 Delete the user account.
 
