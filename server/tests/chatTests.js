@@ -4,6 +4,7 @@ import io from 'socket.io-client';
 const baseURL = 'http://localhost:3000';
 let socket1;
 let token;
+let createdChatId;
 
 function connect_socket(token) {
   return new Promise((resolve, reject) => {
@@ -86,6 +87,7 @@ export default function () {
         );
         expect(res.status).toBe(201);
         expect(res.data).toHaveProperty('chat');
+        createdChatId = res.data.chat._id.toString();
       } catch (error) {}
     });
 
@@ -135,6 +137,14 @@ export default function () {
         expect(res.status).toBe(200);
         expect(res.data).toHaveProperty('chats');
       } catch (error) {}
+    });
+
+    it('should delete the chat', (done) => {
+      socket1.emit('chat:delete', { chatId: createdChatId }, (data) => {
+        expect(data).toHaveProperty('success');
+        expect(data.success).toBe(true);
+        done();
+      });
     });
   });
 }

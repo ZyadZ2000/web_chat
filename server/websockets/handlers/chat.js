@@ -11,7 +11,7 @@ import path from 'path';
 // Custom Modules
 import Chat, { GroupChat } from '../../models/chat.js';
 import User from '../../models/user.js';
-import { executionAsyncResource } from 'async_hooks';
+import Request from '../../models/request.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -628,12 +628,9 @@ export async function delete_chat(socket, data, cb) {
 
     cb({ success: true });
 
-    /* Disconnect all sockets of the members from the chat._id */
     global.io.to(chat._id.toString()).emit('chat:delete', {
       chat: { _id: chat._id },
     });
-
-    return global.io.in(chat._id.toString()).socketsLeave(chat._id.toString());
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
