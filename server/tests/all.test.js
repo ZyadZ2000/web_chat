@@ -6,5 +6,5 @@ import chatTests from './chatTests.js';
 describe('all the tests', () => {
   authTests();
   userTests();
-  // chatTests();
+  chatTests();
 });

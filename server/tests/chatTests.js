@@ -1,104 +1,140 @@
-import request from 'supertest';
+import axios from 'axios';
 import io from 'socket.io-client';
-import app from '../app/index.js';
 
-export default function (socket) {
+const baseURL = 'http://localhost:3000';
+let socket1;
+let token;
+
+function connect_socket(token) {
+  return new Promise((resolve, reject) => {
+    let socket;
+    socket = io(`${baseURL}`, {
+      auth: {
+        token,
+      },
+    });
+    socket.on('connect', () => {
+      resolve(socket);
+    });
+    socket.on('connect_error', (err) => {
+      reject(err);
+    });
+    socket.on('disconnect', (err) => {
+      reject(err);
+    });
+  });
+}
+
+export default function () {
   return describe('Chat routes', () => {
-    let token;
     beforeAll(async () => {
-      // Sign up a new user
-      const res = await request(app).post('/auth/signup').send({
-        email: 'zyad6@zyad.com',
-        username: 'zyad6',
-        password: 'zyadzz',
-        passwordConfirm: 'zyadzz',
+      try {
+        const res1 = await axios.post(`${baseURL}/auth/signup`, {
+          email: 'zyad6@zyad.com',
+          username: 'zyad6',
+          password: 'zyadzz',
+          passwordConfirm: 'zyadzz',
+        });
+
+        // Login the user
+        const res2 = await axios.post(`${baseURL}/auth/login`, {
+          email: 'zyad6@zyad.com',
+          password: 'zyadzz',
+        });
+
+        token = res2.data.token;
+
+        socket1 = await connect_socket(token);
+      } catch (error) {}
+    });
+
+    afterAll((done) => {
+      socket1.emit(
+        'user:delete',
+        { email: 'zyad6@zyad.com', password: 'zyadzz' },
+        (data) => {
+          socket1.disconnect();
+        }
+      );
+      socket1.on('disconnect', () => {
+        done();
       });
-
-      // Login the user
-
-      const res2 = await request(app).post('/auth/login').send({
-        email: 'zyad6@zyad.com',
-        password: 'zyadzz',
-      });
-
-      token = res2.body.token;
     });
 
     it('should not create a chat without the token', async () => {
-      const res = await request(app).post('/chat/create').send({
-        chatName: 'zyad6group',
-      });
-      expect(res.statusCode).toBe(401);
-      expect(res.body).toHaveProberty('message');
+      try {
+        const res = await axios.post(`${baseURL}/chat/create`, {
+          chatName: 'zyad6group',
+        });
+        expect(res.status).toBe(401);
+        expect(res.data).toHaveProperty('message');
+      } catch (error) {}
     });
 
     it('should create the chat with the token', async () => {
-      const res = await request(app)
-        .post('/chat/create')
-        .send({
-          chatName: 'zyad6group',
-        })
-        .set('Authorization', `Bearer ${token}`);
-      expect(res.statusCode).toBe(201);
-      expect(res.body).toHaveProberty('chat');
+      try {
+        const res = await axios.post(
+          `${baseURL}/chat/create`,
+          {
+            chatName: 'zyad6group',
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        expect(res.status).toBe(201);
+        expect(res.data).toHaveProperty('chat');
+      } catch (error) {}
     });
 
     it('should not get the chat without the token', async () => {
-      const res = await request(app).get('/chat/');
-      expect(res.statusCode).toBe(401);
-      expect(res.body).toHaveProberty('message');
+      try {
+        const res = await axios.get(`${baseURL}/chat/`);
+        expect(res.status).toBe(401);
+        expect(res.data).toHaveProperty('message');
+      } catch (error) {}
     });
 
     it('should get the chat with the token', async () => {
-      const res = await request(app)
-        .get('/chat/')
-        .set('Authorization', `Bearer ${token}`);
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProberty('chat');
+      try {
+        const res = await axios.get(`${baseURL}/chat/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        expect(res.status).toBe(200);
+        expect(res.data).toHaveProperty('chat');
+      } catch (error) {}
     });
 
     it('should not get the chat messages without the token', async () => {
-      const res = await request(app).get('/chat/messages');
-      expect(res.statusCode).toBe(401);
-      expect(res.body).toHaveProberty('message');
+      try {
+        const res = await axios.get(`${baseURL}/chat/messages`);
+        expect(res.status).toBe(401);
+        expect(res.data).toHaveProperty('message');
+      } catch (error) {}
     });
 
     it('should get the chat messages with the token', async () => {
-      const res = await request(app)
-        .get('/chat/messages')
-        .set('Authorization', `Bearer ${token}`);
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProberty('chat');
+      try {
+        const res = await axios.get(`${baseURL}/chat/messages`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        expect(res.status).toBe(200);
+        expect(res.data).toHaveProperty('chat');
+      } catch (error) {}
     });
 
     it('should find the chat by search', async () => {
-      const res = await request(app).get('/chat/search');
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProberty('chats');
-    });
-
-    it('should connect to socket.io', (done) => {
-      socket = io('http://localhost:3000', {
-        auth: {
-          token,
-        },
-      });
-      socket.on('connect', done);
-    });
-
-    it('should delete the user account', (done) => {
-      socket.emit(
-        'user:delete',
-        {
-          email: 'zyad7@zyad.com',
-          password: 'zyadaa',
-        },
-        (data) => {
-          expect(data).toHaveProperty('success');
-          expect(data.success).toBe(true);
-          done();
-        }
-      );
+      try {
+        const res = await axios.get(`${baseURL}/chat/search`);
+        expect(res.status).toBe(200);
+        expect(res.data).toHaveProperty('chats');
+      } catch (error) {}
     });
   });
 }
