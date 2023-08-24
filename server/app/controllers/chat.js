@@ -32,7 +32,7 @@ export async function create_chat(req, res, next) {
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(201).json({ message: 'chat created successfully', chat });
+    return res.status(201).json({ chat });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -47,14 +47,12 @@ export async function search_chats(req, res, next) {
 
     let chats;
     if (name) {
-      const exactMatchRegex = new RegExp(`^${name}$`, 'i'); // Exact match
       const startsWithRegex = new RegExp(`^${name}`, 'i'); // Start with
       const endsWithRegex = new RegExp(`${name}$`, 'i'); // End with
       const containsRegex = new RegExp(name, 'i'); // Contains
 
       chats = await GroupChat.find({
         $or: [
-          { name: exactMatchRegex },
           { name: startsWithRegex },
           { name: endsWithRegex },
           { name: containsRegex },
@@ -71,7 +69,6 @@ export async function search_chats(req, res, next) {
         .populate('creator', '_id username photo onlineStatus bio createdAt')
         .select('_id name photo description createdAt');
     }
-    if (!chats) return res.status(404).json({ message: 'No chats found' });
 
     return res.status(200).json({ chats });
   } catch (error) {
@@ -82,43 +79,88 @@ export async function search_chats(req, res, next) {
 export function get_chat(onlyMessages) {
   return async function (req, res, next) {
     try {
-      const { chatId } = req.body;
+      const chatId = new mongoose.Types.ObjectId(req.body.chatId);
       const userId = req.userId;
       const page = req.query.page || 1;
       let chat;
       if (!onlyMessages) {
-        chat = await Chat.findOne({
-          _id: chatId,
-          $or: [{ members: userId }, { users: userId }, { creator: userId }],
-        })
-          .select(
-            '_id admins type users members creator photo name description createdAt'
-          )
-          .select({
-            messages: { $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE] },
-          })
-          .populate(
-            'members',
-            '_id username profilePhoto onlineStatus bio createdAt'
-          )
-          .populate(
-            'users',
-            '_id username profilePhoto onlineStatus bio createdAt'
-          )
-          .populate(
-            'creator',
-            '_id username profilePhoto onlineStatus bio createdAt'
-          );
-      } else {
-        chat = await Chat.findOne({
-          _id: chatId,
-          $or: [{ members: userId }, { users: userId }, { creator: userId }],
-        }).select({
-          messages: { $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE] },
-        });
-      }
-      if (!chat) return res.status(404).json({ message: 'chat not found' });
+        chat = await Chat.aggregate([
+          {
+            $match: { _id: chatId },
+          },
+          {
+            $addFields: {
+              isAuthorized: {
+                $cond: {
+                  if: { $eq: ['$type', 'groupChat'] },
+                  then: { $in: [userId, '$members'] },
+                  else: { $in: [userId, '$users'] },
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              type: 1,
+              isAuthorized: 1,
+              messages: {
+                $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE],
+              },
+              admins: 1,
+              users: 1,
+              members: 1,
+              creator: 1,
+              photo: 1,
+              name: 1,
+              description: 1,
+              createdAt: 1,
+            },
+          },
+        ]);
+        chat = chat[0];
 
+        if (!chat) return res.status(404).json({ message: 'chat not found' });
+        if (!chat.isAuthorized)
+          return res.status(402).json({ message: 'unauthorized' });
+
+        if (chat.type === 'groupChat') {
+          await chat.populate(['members', 'creator']);
+        } else {
+          await chat.populate('users', '-password -email -chats -friends');
+        }
+      } else {
+        chat = await Chat.aggregate([
+          {
+            $match: { _id: chatId },
+          },
+          {
+            $addFields: {
+              isAuthorized: {
+                $cond: {
+                  if: { $eq: ['$type', 'groupChat'] },
+                  then: { $in: [userId, '$members'] },
+                  else: { $in: [userId, '$users'] },
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              messages: {
+                $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE],
+              },
+            },
+          },
+        ]);
+
+        chat = chat[0];
+
+        if (!chat) return res.status(404).json({ message: 'chat not found' });
+        if (!chat.isAuthorized)
+          return res.status(402).json({ message: 'unauthorized' });
+      }
       return res.status(200).json({ chat });
     } catch (error) {
       return next(error);
@@ -128,19 +170,42 @@ export function get_chat(onlyMessages) {
 
 export async function get_chat_requests(req, res, next) {
   try {
-    const { chatId } = req.body;
+    const chatId = new mongoose.Types.ObjectId(req.body.chatId);
     const page = req.query.page || 1;
     const userId = req.userId;
 
-    const chat = await GroupChat.findOne({
-      _id: chatId,
-      $or: [{ admins: userId }, { creator: userId }],
-    }).select('_id');
+    let chat = await GroupChat.aggregate([
+      { $match: { _id: chatId } },
+      {
+        $addFields: {
+          isAuthorized: {
+            $cond: {
+              if: {
+                $or: [
+                  { $in: [userId, '$admins'] },
+                  { $eq: ['$creator', userId] },
+                ],
+              },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          isAuthorized: 1,
+        },
+      },
+    ]);
 
-    if (!chat)
-      return res.status(401).json({
-        message: 'chat not found or unauthorized',
-      });
+    chat = chat[0];
+
+    if (!chat) return res.status(404).json({ message: 'chat not found' });
+    if (!chat.isAuthorized)
+      return res.status(402).json({ message: 'unauthorized' });
 
     const requests = await Request.find({
       chat: chat._id,
@@ -151,9 +216,6 @@ export async function get_chat_requests(req, res, next) {
         'sender',
         '_id username profilePhoto onlineStatus bio createdAt'
       );
-
-    if (!requests)
-      return res.status(404).json({ message: 'No requests were found' });
 
     return res.status(200).json({ requests });
   } catch (error) {

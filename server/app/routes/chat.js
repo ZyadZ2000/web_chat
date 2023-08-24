@@ -6,7 +6,6 @@ import { auth_jwt } from '../middleware/auth.js';
 import upload from '../../config/multer.js';
 import validate_data from '../middleware/validation.js';
 import * as validationSchemas from '../../config/joi.js';
-import { validate } from 'uuid';
 
 const router = express.Router();
 
