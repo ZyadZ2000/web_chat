@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import User from '../../models/user.js';
 import Request from '../../models/request.js';
 import { verify_credentials } from '../../utils/auth.js';
+import { GroupChat } from '../../models/chat.js';
 
 export async function remove_friend(socket, data, cb) {
   const session = await mongoose.startSession();
@@ -121,6 +122,11 @@ export async function delete_user(socket, data, cb) {
     }).session(session);
 
     await User.deleteOne({ _id: socket.user._id }).session(session);
+
+    await GroupChat.updateMany(
+      { members: socket.user._id },
+      { $pull: { members: socket.user._id, admins: socket.user._id } }
+    ).session(session);
 
     await session.commitTransaction();
     session.endSession();

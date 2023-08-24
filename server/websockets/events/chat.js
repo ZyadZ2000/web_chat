@@ -87,6 +87,22 @@ export default function (socket) {
     await chatHandlers.leave_chat(socket, data, cb);
   });
 
+  socket.on('chat:delete', async (data, cb) => {
+    if (typeof cb !== 'function' || typeof data !== 'object')
+      return global.io.to(socket.id).emit('error', {
+        error: "A 'data' object and a callback function must be provided.",
+      });
+
+    const errors = validate_fields(['chatId'], data, {
+      chatId: validationSchemas.objectIdSchema,
+    });
+
+    if (Object.keys(errors).length !== 0)
+      return cb({ success: false, code: 400, error: errors });
+
+    await chatHandlers.delete_chat(socket, data, cb);
+  });
+
   function handle_admin_add_or_remove(isAdd) {
     return async (data, cb) => {
       if (typeof cb !== 'function' || typeof data !== 'object')

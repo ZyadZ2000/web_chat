@@ -568,6 +568,83 @@ export async function leave_chat(socket, data, cb) {
   }
 }
 
+export async function delete_chat(socket, data, cb) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const chatId = new mongoose.Types.ObjectId(data.chatId);
+
+    let chat = await GroupChat.aggregate([
+      {
+        $match: { _id: chatId },
+      },
+      {
+        $addFields: {
+          isCreator: {
+            $cond: {
+              if: { $eq: ['$creator', socket.user._id] },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          isCreator: 1,
+        },
+      },
+    ]);
+
+    chat = chat[0];
+
+    if (!chat) {
+      error = new Error('Chat not found');
+      error.code = 404;
+      throw error;
+    }
+
+    if (!chat.isCreator) {
+      error = new Error('Not authorized');
+      error.code = 402;
+      throw error;
+    }
+
+    await User.updateMany(
+      { chats: chat._id },
+      { $pull: { chats: chat._id } }
+    ).session(session);
+
+    await Request.deleteMany(
+      { chat: chat._id },
+      { $pull: { chats: chat._id } }
+    ).session(session);
+
+    await GroupChat.deleteOne({ _id: chat._id }).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    cb({ success: true });
+
+    /* Disconnect all sockets of the members from the chat._id */
+    global.io.to(chat._id.toString()).emit('chat:delete', {
+      chat: { _id: chat._id },
+    });
+
+    return global.io.in(chat._id.toString()).socketsLeave(chat._id.toString());
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    return cb({
+      success: false,
+      code: error.code || 500,
+      error: error.message,
+    });
+  }
+}
+
 export async function change_name_or_photo_or_description(
   socket,
   data,
