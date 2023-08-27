@@ -100,12 +100,24 @@ export function get_chat(onlyMessages) {
             },
           },
           {
+            $lookup: {
+              from: 'users',
+              localField: 'creator',
+              foreignField: '_id',
+              as: 'creator',
+            },
+          },
+          {
             $project: {
               _id: 1,
               type: 1,
               isAuthorized: 1,
               messages: {
-                $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE],
+                $slice: [
+                  '$messages',
+                  (page - 1) * ITEMS_PER_PAGE,
+                  ITEMS_PER_PAGE,
+                ],
               },
               admins: 1,
               users: 1,
@@ -125,9 +137,19 @@ export function get_chat(onlyMessages) {
           return res.status(402).json({ message: 'unauthorized' });
 
         if (chat.type === 'groupChat') {
-          await chat.populate(['members', 'creator']);
+          chat.members = await User.find(
+            { _id: { $in: chat.members } },
+            '_id username photo onlineStatus bio createdAt'
+          );
+          chat.admins = await User.find(
+            { _id: { $in: chat.admins } },
+            '_id username photo onlineStatus bio createdAt'
+          );
         } else {
-          await chat.populate('users', '-password -email -chats -friends');
+          chat.users = await User.find(
+            { _id: { $in: chat.users } },
+            '_id username photo onlineStatus bio createdAt'
+          );
         }
       } else {
         chat = await Chat.aggregate([
@@ -149,8 +171,13 @@ export function get_chat(onlyMessages) {
             $project: {
               _id: 1,
               messages: {
-                $slice: [(page - 1) * ITEMS_PER_PAGE, ITEMS_PER_PAGE],
+                $slice: [
+                  '$messages',
+                  (page - 1) * ITEMS_PER_PAGE,
+                  ITEMS_PER_PAGE,
+                ],
               },
+              isAuthorized: 1,
             },
           },
         ]);

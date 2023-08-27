@@ -6,6 +6,7 @@ import path from 'path';
 
 import app_auth_tests from './app.auth.js';
 import app_user_tests from './app.user.js';
+import app_chat_tests from './app.chat.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,4 +31,5 @@ beforeAll(async () => {
 describe('Main test', () => {
   app_auth_tests();
   app_user_tests();
+  app_chat_tests();
 });

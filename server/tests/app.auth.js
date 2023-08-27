@@ -1,4 +1,3 @@
-import request from 'supertest';
 import app from '../app/index.js';
 import User from '../models/user.js';
 import { connect_app, disconnect_app } from './utils/connectDisconnect.js';
