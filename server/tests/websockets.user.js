@@ -10,6 +10,7 @@ import path from 'path';
 // Custom Modules
 import User from '../models/user.js';
 import { connect_socket } from './utils/connectDisconnect.js';
+import exp from 'constants';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +19,6 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const baseURL = 'http://localhost:3000';
 
-let server; // create a server with the express app.
 let tokens = [];
 let userIds = [];
 let sockets = [];
@@ -77,10 +77,46 @@ export default function () {
     });
 
     it('should not remove a friend with invalid id', () => {
-      expect(true).toBe(true);
+      sockets[0].emit('user:removeFriend', { friendId: 1 }, (data) => {
+        expect(data.success).toBe(false);
+      });
     });
-    // it('shoudl remove a friend with valid id');
-    // it('should not delete a user with invalid credentials');
-    // it('should delete a user with valid credentials');
+
+    it('shoudl remove a friend with valid id', (done) => {
+      sockets[0].emit('user:removeFriend', { friendId: userIds[1] }, (data) => {
+        expect(data.success).toBe(true);
+      });
+      sockets[1].on('user:removeFriend', (data) => {
+        done();
+      });
+    });
+
+    it('should not delete a user with invalid credentials', () => {
+      sockets[0].emit(
+        'user:delete',
+        {
+          email: 'zyad6@zyad.com',
+          password: 'password',
+        },
+        (data) => {
+          expect(data.success).toBe(false);
+        }
+      );
+    });
+    it('should delete a user with valid credentials', (done) => {
+      sockets[0].emit(
+        'user:delete',
+        {
+          email: 'zyad6@zyad.com',
+          password: 'zyadzz',
+        },
+        (data) => {
+          expect(data.success).toBe(true);
+        }
+      );
+      sockets[1].on('user:delete', () => {
+        done();
+      });
+    });
   });
 }
