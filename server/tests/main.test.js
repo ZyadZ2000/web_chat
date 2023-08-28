@@ -29,5 +29,5 @@ describe('Main test', () => {
   app_auth_tests();
   app_user_tests();
   app_chat_tests();
-  // ws_user_tests();
+  ws_user_tests();
 });

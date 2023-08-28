@@ -1,30 +1,16 @@
-// import app from '../app/index.js';
-// import mongoose from 'mongoose';
-// import dotenv from 'dotenv';
 import User from '../models/user.js';
-// import { connect_app, disconnect_app } from './utils/connectDisconnect.js';
 import axios from 'axios';
 
 const baseURL = 'http://localhost:3000';
 
 let userId;
-// let server;
-// let agent;
 
 export default function () {
   return describe('Testing authentication routes', () => {
-    // beforeAll(async () => {
-    //   // let result = await connect_app(app, 5000);
-    //   // agent = result.agent;
-    //   // server = result.server;
-    //   await mongoose.connect(process.env.MONGO_URI, {dbName: 'web_chat'});
-    // });
-
     afterAll(async () => {
       try {
         await User.deleteOne({ _id: userId });
       } catch (error) {}
-      //await disconnect_app(server);
     });
 
     it('should not sign up with invalid data', async () => {
