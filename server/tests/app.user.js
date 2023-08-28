@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import app from '../app/index.js';
 import User from '../models/user.js';
-import { connect_app, disconnect_app } from './utils/connectDisconnect.js';
+//import { connect_app, disconnect_app } from './utils/connectDisconnect.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
 

@@ -23,13 +23,11 @@ afterAll(async () => {
   await mongoose.connection.close();
 });
 
-beforeAll(async () => {
-  await mongoose.connect(process.env.MONGO_URI, {
-    dbName: process.env.DB_NAME,
-  });
-});
+import ws_user_tests from './websockets.user.js';
+
 describe('Main test', () => {
   app_auth_tests();
   app_user_tests();
   app_chat_tests();
+  // ws_user_tests();
 });
