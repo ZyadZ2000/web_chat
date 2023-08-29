@@ -55,7 +55,7 @@ export async function accept_or_decline_request(socket, data, cb, isAccept) {
     if (request.type === 'joinRequest') {
       global.io
         .to(result.requestSender.id)
-        .emit(isAccept ? 'request:accept' : 'result:decline', {
+        .emit(isAccept ? 'request:accept' : 'request:decline', {
           ...result.dataToRequestSender,
         });
     }
